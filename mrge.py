@@ -7,6 +7,9 @@ from collections.abc import Iterator
 
 verbosity = 0
 
+# TODO test multibank implement vs single bank fractional addition
+# TODO add retro- vs avant- probability recalculation
+
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="A tool for extracting random bits from an external source of entropy. This is a proof of concept for a greedy extractor algorithm (hence My Random Greedy Extractor) which tries to return close to as many output bits as there is information about the entropy source. By default stdin is read for incoming information and results are sent to stdout. Input is expected to be floating point values one number per line.")
@@ -111,6 +114,9 @@ class Extractor():
         # Divisions of normalised space
         self.divs = 1
 
+    def next(self, item):
+        return False, []
+
     def reset(self):
         self.storage = {}
 
@@ -144,6 +150,7 @@ class Extractor():
             self.divs -= 1
             logging.info(f"Decreasing divisions to {self.divs}")
 
+    # This method will only correct divs by 1 either up or down. Perhaps generalising would be nice
     @staticmethod
     def sRecalcDivs(events, divs):
         totalEvents = sum(events.values())

@@ -62,7 +62,6 @@ class testMRGE(unittest.TestCase):
 
     def testRecalcDivs(self):
         egr = mrge.Extractor()
-        mrge.verbosity = 2
         assert egr.divs == 1, "Bad divs init"
         egr.insert(1)
         egr.recalcDivs()
@@ -78,6 +77,20 @@ class testMRGE(unittest.TestCase):
             egr.insert(8)
         egr.recalcDivs()
         assert egr.divs < 8, "Failed to downgrade divisions"
+
+    def testExtraction(self):
+        egr = mrge.Extractor()
+        success, values = egr.next(1)
+        assert not success and not values, "First insertion resulted in getting data. Not right"
+        s,v = egr.next(2)
+        assert s and v, "non-trivial insertion resulted in no data"
+        egr.reset()
+        egr.next(1)
+        s,v = egr.next(1)
+        assert not s and not v, "trivial second insertion resulted in new data"
+        egr.reset()
+        egr.next(1)
+        s,v = egr.next(0)
 
 
 if __name__ == "__main__":
