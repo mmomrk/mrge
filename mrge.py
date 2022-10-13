@@ -37,12 +37,7 @@ def setLogger(lvl, **kwargs):
         ll = lls[-1]
     logging.basicConfig(
         level=ll, format='\t%(asctime)s %(levelname)s \n%(message)s', datefmt='%s', **kwargs)
-    logging.debug("setting logger {lvl}, {ll}, {lls}, {kwargs}")
-    logging.critical("Example critical")
-    logging.error("Example error")
-    logging.warning("Example warn")
-    logging.info("Logger info visible")
-    logging.debug("ALL MESSAGES VISIBLE")
+    logging.debug("Setting logger debug {lvl}, {ll}, {lls}, {kwargs}")
 
 
 def parseargs():
@@ -59,6 +54,7 @@ def parseargs():
     logging.debug("Argument space is ", args)
 
 
+# Make an iterator from stdin
 class ISIterator(Iterator):
     def __init__(self):
         from sys import stdin
@@ -82,31 +78,41 @@ class Extractor():
     str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c
     '''
 
-    def __init__(self, inp: str = None, outp: str = None, ints: bool = True, fracts: bool = True, base: int = 2, instream: Iterable = [], str2cmp: callable = int):
-        # Init input
+    @staticmethod
+    def initInp(inp, instream):
+        retval = None
         if inp:
             with open(inp, 'r') as infile:
-                self.input = infile.readlines()
+                retval = infile.readlines()
         elif instream:
-            self.input = instream
+            retval = instream
         else:
-            self.input = ISIterator()
+            retval = ISIterator()
+        return retval
 
-        # Init output
+    @staticmethod
+    def initOutp(outp):
+        retval = None
         if outp:
             try:
                 # file will be closed. Have to use try
                 # with open(outp, 'w') as outfile:
-                self.outp = open(outp, 'w')
+                retval = open(outp, 'w')
             except Exception as e:
                 raise e
         else:
             from sys import stdout
-            self.outp = stdout
+            retval = stdout
+        return retval
 
-        # Init rest
+    def __init__(self, inp: str = None, outp: str = None, ints: bool = True, fracts: bool = True, base: int = 2, instream: Iterable = [], str2cmp: callable = int):
+        # io setup:
+        self.input = Extractor.initInp(inp, instream)
+        self.outp = Extractor.initOutp(outp)
+        # generator output control:
         self.ints = ints
         self.fracts = fracts
+        assert base >= 2, "Output base should be >=2"
         self.base = base
         self.compare = str2cmp
         # Input items are stored here:
@@ -114,7 +120,32 @@ class Extractor():
         # Divisions of normalised space
         self.divs = 1
 
+    class InfoBank():
+        def __init__(self, base=2):
+            self.base = base
+            self.readiness = 0
+            self.bins = [0 for x in range(base)]
+
+        def next(self, addr, weight, inw):
+            #self.readiness += inw
+            self.readiness += inw
+            self.bins[addr] += weight
+            #logging.debug(f"Bank {self.readiness}, {self.bins}")
+            if self.readiness < 1.:
+                return (False, -1)  # -1 if for branchless handling
+            maxval = max(self.bins)
+            maxind = self.bins.index(maxval)
+            self.reset()
+            return (True, maxind)
+
+        def reset(self):
+            self.readiness = 0
+            self.bins = [0 for x in range(self.base)]
+
+    # TODO
+
     def next(self, item):
+        pass
         return False, []
 
     def reset(self):
