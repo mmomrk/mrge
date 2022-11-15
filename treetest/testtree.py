@@ -27,15 +27,44 @@ class testMRGE(unittest.TestCase):
         assert all(
             br.complete for br in tree.branches), "bad complete calculation"
 
-    def testPrint4Chart(self):
-        tree = tr.Node(p=1, name="0")
-        p = 1./4
-        tree = tr.addNext(tree, [p, 1-p])
-        s = tr.getPrintable(tree)
-        firstLine = s.split('\n')[0]
-        assert "0.5" in firstLine and " 0 " in firstLine, "Bad coordinates of first line"
-        secondLine = s.split('\n')[1]
-        assert "0.3" in secondLine and " 1 " in secondLine, "Bad second line"
+    def testPos2coord(self):
+        pos = ""
+        assert tr.pos2coord(pos) == (0, 0), "Bad coord 2 pos for init"
+        pos = " "
+        assert tr.pos2coord(pos) == (0, 0), "Bad coord 2 pos for init with WS"
+        # 0 1 2<- / total=3
+        pos = "2/3"
+        assert tr.pos2coord(pos) == (1, -1), "Bad coord for first pos"
+        pos = "1/3"
+        assert tr.pos2coord(pos) == (0, -1), "Bad coord for first pos mid"
+        pos = "0/3"
+        assert tr.pos2coord(pos) == (-1, -1), "Bad coord for first pos left"
+        pos = "0/2 0/2"
+        assert tr.pos2coord(
+            pos) == (-0.75, -2), "Bad coord for second pos left left"
+        pos = "1/2 0/2"
+        assert tr.pos2coord(pos) == (
+            0.25, -2), "Bad coord for second pos left left"
+        pos = "2/3 1/2"
+        assert tr.pos2coord(pos) == (
+            1.25, -2), "Bad coord for second mid/3, right"
+        pos = "1/3 1/2"
+        assert tr.pos2coord(pos) == (
+            0.25, -2), "Bad coord for second mid/3, right"
+        pos = "2/3 0/2"
+        assert tr.pos2coord(pos) == (
+            0.75, -2), "Bad coord for second mid/3, right"
+
+    def testTree2GNUPlot(self):
+        tree = tr.Node(p=1)
+        tree = tr.addNext(tree, [1./3, 1./3, 1./3])
+        stree = tr.tree2GNUPlot(tree)
+        print("!!!", stree)
+        splitStrings = stree.split('\n')
+        assert 'x y' in splitStrings[0], "bad headers line"
+        assert '0 0' in splitStrings[1][:5], "tree root not in 0,0"
+        assert '-1' in splitStrings[2][:5], "no negative coordinates of first leaf"
+        assert '0 0' in splitStrings[3][:5], "no return to first node for proper drawing purposes"
 
 
 if __name__ == "__main__":

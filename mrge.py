@@ -121,11 +121,13 @@ class Extractor():
         self.divs = 1
 
     class InfoBank():
-        def __init__(self, base=2):
+        def __init__(self, base=2, resetLead=True, resetRest=True):
             self.base = base
             self.readiness = 0
             self.bins = [0 for x in range(base)]
             self.candidate = 0
+            self.resetLead = resetLead
+            self.resetRest = resetRest
 
         def next(self, addr, weight, inw):
             #self.readiness += inw
@@ -135,21 +137,24 @@ class Extractor():
             if binsmax == self.bins[addr]:
                 self.candidate = addr
             #logging.debug(f"Bank {self.readiness}, {self.bins}")
-            if self.readiness < 100.:
+            if self.readiness < 1.:
                 return (False, -1)  # -1 if for branchless handling
             maxval = binsmax
             maxind = self.bins.index(maxval)
             # This check is to mix return value in case of a tie:
             self.bins.pop(maxind)
             if max(self.bins) == maxval:
-                # maxind in the meaning of return value
+                # mix the output, not stuck to first pos of max value
                 maxind = addr
-            self.reset()
-            return (True, maxind)
+            self.reset(lead=maxind)
+            return (True, lead=maxind, leadval=maxval)
 
-        def reset(self):
+        def reset(self, lead=-1, leadval=None):
+            if self.resetRest:
+                self.bins = [0 for x in range(self.base)]
+            if self.resetLead:
+
             self.readiness = 0
-            self.bins = [0 for x in range(self.base)]
 
     # TODO
 

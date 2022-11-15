@@ -114,7 +114,7 @@ class testMRGE(unittest.TestCase):
             for wn, w in enumerate((w1, w2, w3, w4)):
                 print(awn, wn)
                 for p in range(1, 11):
-                #for x in range(3, 8):
+                    # for x in range(3, 8):
                     x = 2**p
                     frac = 1./x
                     i0 = -frac*log(frac, 2)
