@@ -125,16 +125,25 @@ class Extractor():
             self.base = base
             self.readiness = 0
             self.bins = [0 for x in range(base)]
+            self.candidate = 0
 
         def next(self, addr, weight, inw):
             #self.readiness += inw
             self.readiness += inw
             self.bins[addr] += weight
+            binsmax = max(self.bins)
+            if binsmax == self.bins[addr]:
+                self.candidate = addr
             #logging.debug(f"Bank {self.readiness}, {self.bins}")
-            if self.readiness < 1.:
+            if self.readiness < 100.:
                 return (False, -1)  # -1 if for branchless handling
-            maxval = max(self.bins)
+            maxval = binsmax
             maxind = self.bins.index(maxval)
+            # This check is to mix return value in case of a tie:
+            self.bins.pop(maxind)
+            if max(self.bins) == maxval:
+                # maxind in the meaning of return value
+                maxind = addr
             self.reset()
             return (True, maxind)
 
