@@ -4,6 +4,7 @@ import logging
 from math import log
 from collections.abc import Iterable
 from collections.abc import Iterator
+from fractions import Fraction as fr
 
 verbosity = 0
 
@@ -11,7 +12,7 @@ verbosity = 0
 # TODO add retro- vs avant- probability recalculation
 
 
-def parseArgs():
+def parseFlags():
     parser = argparse.ArgumentParser(description="A tool for extracting random bits from an external source of entropy. This is a proof of concept for a greedy extractor algorithm (hence My Random Greedy Extractor) which tries to return close to as many output bits as there is information about the entropy source. By default stdin is read for incoming information and results are sent to stdout. Input is expected to be floating point values one number per line.")
     parser.add_argument(
         '--verbose', '-v', help="Enable verbose output of code execution. Needed for debug only", action="count")
@@ -42,7 +43,7 @@ def setLogger(lvl, **kwargs):
 
 def parseargs():
     global verbosity
-    args = parseArgs()
+    args = parseFlags()
     iFileName = args.input
     oFileName = args.output
     verbosity = args.verbose
@@ -69,7 +70,7 @@ class ISIterator(Iterator):
 
 class Extractor():
     @staticmethod
-    def initInp(inp: str, instream: Iterable) -> iterable:
+    def initInp(inp: str, instream: Iterable) -> Iterable:
         ''' return something iterable: either an input file list of lines or input stream or stdin as iterable
         '''
         retval = None
@@ -97,133 +98,138 @@ class Extractor():
             retval = stdout
         return retval
 
-    def __init__(self, inp: str = None, outp: str = None, ints: bool = True, fracts: bool = True, base: int = 2, instream: Iterable = [], str2cmp: callable = int):
+    def __init__(self, base: int = 2, preNotPostRecalc: bool = True, roundUp: bool = False, precision: float = 0.05, revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = int):
         '''
-       inp - input file name
-       outp - output file name
-       ints - use integer divisions for generation
-       fracts - use fractional divisions for generation
-       base    -   base of output numbers
-       instream    -   iterable containing items objects comparable
-       str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c
-       '''
+        base    -   base of output numbers
+        preNotPostRecalc    -   calculate event probability before storing the event to the statistics that probability is calculated with (see lightning probability for clarifications)
+        roundUp -   allow to round last bit to get output faster but not more correct
+        precision   -   this amount of entropy is allowed to be lost
+        revBlock    -   allow alorithm to store data silently to release output after this amount of data points
+        revEntropy  -   allow algorithm to store data silently to release output after this amount of entropy is available to be produced
+        saveStats   -   save dictionary to this filename to resume processing with this information
+        loadStats   -   load data dictionary from this filename
+        inp - input file name
+        outp - output file name
+        instream    -   iterable containing items objects comparable
+        str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c
+        '''
+        # Algo settings:
+        assert base >= 2, "Output base should be >=2"
+        self.base = base
+        # Possible security vulnerability:
+        self.prePost = preNotPostRecalc
+        # Greedy parameters to configure speed vs security:
+        self.roundUp = roundUp
+        self.precision = precision
+        self.revBlock = revBlock
+        self.revEntropy = revEntropy
+        self.storeStatisticsFName = saveStats
+        self.loadStatisticsFName = loadStats
         # io setup:
         self.input = Extractor.initInp(inp, instream)
         self.outp = Extractor.initOutp(outp)
-        # generator output control:
-        self.ints = ints
-        self.fracts = fracts
-        assert base >= 2, "Output base should be >=2"
-        self.base = base
         self.compare = str2cmp
         # Input items are stored here:
         self.storage = {}
-        # Divisions of normalised space
-        self.divs = 1
+        # Parameters for
+        self.entropyAccumulator = 0
+        self.left = 0
+        self.length = 1
 
-    class InfoBank():
-        def __init__(self, base=2, resetLead=True, resetRest=True):
-            self.base = base
-            self.readiness = 0
-            self.bins = [0 for x in range(base)]
-            self.candidate = 0
-            self.resetLead = resetLead
-            self.resetRest = resetRest
+    def getProbs(self, item):
+        ''' Get an item and calculate it probability based on dictionary. Also calculate probability to get something less than given item
+        If there is no such item in storage then prob is zero. Adding to storage before calculating probability is handled by insNewGetProb()
+        '''
+        lessThan = 0
+        for stored, count in self.storage.items():
+            # Optimisation could happen here if we sort the array perhaps
+            if stored >= item:
+                continue
+            lessThan += count
+        lessThanFrac = fr(lessThan, self.totalEvents())
+        if item in self.storage.keys():
+            return fr(self.storage[item], self.totalEvents()), lessThanFrac
+        return (0, lessThanFrac)
 
-        def next(self, addr, weight, inw):
-            #self.readiness += inw
-            self.readiness += inw
-            self.bins[addr] += weight
-            binsmax = max(self.bins)
-            if binsmax == self.bins[addr]:
-                self.candidate = addr
-            #logging.debug(f"Bank {self.readiness}, {self.bins}")
-            if self.readiness < 1.:
-                return (False, -1)  # -1 if for branchless handling
-            maxval = binsmax
-            maxind = self.bins.index(maxval)
-            # This check is to mix return value in case of a tie:
-            self.bins.pop(maxind)
-            if max(self.bins) == maxval:
-                # mix the output, not stuck to first pos of max value
-                maxind = addr
-            self.reset(lead=maxind)
-            return (True, lead=maxind, leadval=maxval)
+        pass
 
-        def reset(self, lead=-1, leadval=None):
-            if self.resetRest:
-                self.bins = [0 for x in range(self.base)]
-            if self.resetLead:
+    def insNewGetProb(self, item):
+        """ Insert item and return (its probability, probability to get item smaller than given)
+        Function respects the constructor flag of pre-insertion or post-insertion probability calculation. See lightning example
+        """
+        if self.prePost:
+            self.insert(item)
+        probs = self.getProbs(item)
+        if not self.prePost:
+            self.insert(item)
+        return probs
 
-            self.readiness = 0
+        # recalc prob add to dicti
+        # of add to dicti, recalc prob
+        # get probability of smaller than
+        # return probability, prob smaller than
+        pass
 
-    # TODO
+    def getNumOfNewBits(self, probability):
+        # check entropy increase, check bits extraction settings, calculate number of output bits on this step
+        pass
+
+    def updateInterval(self, probability, probSmallerThan):
+        # update stored data on leftmost interval fraction and on interval length
+        pass
+
+    def generateOutputApproximation(self):
+        # calculate middle point
+        # return number from 0..1 in given base
+        pass
 
     def next(self, item):
+        # get probability and Probability not greater than
+        # add entropy accumulator, get number of new bits based on config << getNumOfNewBits
+        # recalc left , recalc length
+        # if bits returned > 0: generate output approximation and throw n bits and reset entropy accumulator
         pass
         return False, []
 
     def reset(self):
+        self.entropyAccumulator = 0
+        self.left = 0
+        self.length = 1
         self.storage = {}
 
-    # todo: add support of items
-    def insert(self, item, *items):
-        logging.info("Inserting " + str(item))
-        if item in self.storage:
-            self.storage[item] += 1
-        else:
-            self.storage[item] = 1
+    def insert(self, *items):
+        ''' Method is used for testing. To insert items without recalculating stuff in the process
+        '''
+        logging.info("Inserting " + str(items))
+        for item in items:
+            if item is None:
+                continue
+            if item in self.storage:
+                self.storage[item] += 1
+            else:
+                self.storage[item] = 1
 
-    def getCurrentEntropy(self):
+    def totalEvents(self):
+        # No need for special case {}
+        return sum(self.storage.values())
+
+    def getAverageEntropyOfNext(self):
+        if self.totalEvents() == 0:
+            return 0
+        return self.getTotalTheoreticalEntropy()/self.totalEvents()
+
+    def getAccumulatedEntropy(self):
+        return self.entropyAccumulator
+
+    def getTotalTheoreticalEntropy(self):
         if not self.storage:
             return 0
-        # Could be a point to optimise in the unreachably distant future:
-        totalEvents = sum(self.storage.values())
-        s = sum((-v/totalEvents*log(v/totalEvents, self.base)
+        # Sum of -n*log(p) in given base
+        s = sum((-1.*v*log(1.*v/self.totalEvents(), self.base)
                 for k, v in self.storage.items()))
         logging.debug(
-            f"Calculating entropy:\nTotal {totalEvents}, base {self.base}, events:\n{self.storage}\nCalculated entropy {s}")
+            f"Calculating entropy:\nTotal {self.totalEvents()}, base {self.base}, events:\n{self.storage}\nCalculated entropy {s}")
         return s
-
-    # Try to fit new probabilities into the linearised gaps
-    def recalcDivs(self):
-        if Extractor.sRecalcDivs(self.storage, self.divs):
-            if Extractor.sRecalcDivs(self.storage, self.divs+1):
-                self.divs += 1
-                logging.info(f"Increasing divisions to {self.divs}")
-        else:
-            # Perhaps a solid proof would be nice but not today
-            self.divs -= 1
-            logging.info(f"Decreasing divisions to {self.divs}")
-
-    # This method will only correct divs by 1 either up or down. Perhaps generalising would be nice
-    @staticmethod
-    def sRecalcDivs(events, divs):
-        totalEvents = sum(events.values())
-        ascending = sorted(events.keys())
-        p = 0
-        probs = [p := p+1.*events[x]/totalEvents for x in ascending]
-        logging.debug("probabilities "+str(list(probs)))
-        newStep = 1./(divs)
-        prevDiv = 0
-        currentDiv = newStep
-        nStep = 1
-        divok = False
-        for pi in probs:
-            logging.debug(
-                f"division calc from {divs}\n{divok}\t{pi}>{currentDiv}")
-            if pi > currentDiv:
-                if divok:
-                    nStep += 1
-                    currentDiv = nStep*newStep
-                    if pi > currentDiv:
-                        divok = False
-                        break
-                    continue
-            else:
-                divok = True
-        logging.debug(f"Divisions test {divs} passed? {divok}")
-        return divok
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 import unittest
 import mrge
+from fractions import Fraction as fr
 import os
 
 
@@ -35,20 +36,21 @@ class testMRGE(unittest.TestCase):
             assert phrase in outFile.read(), "Failed to write to test file"
         os.remove(ofleName)
 
+    # Redo TODO
     def testEntropyCounter(self):
         egr = mrge.Extractor()
-        assert egr.getCurrentEntropy() == 0, "Bad init of class. No zero entropy"
+        assert egr.getTotalTheoreticalEntropy() == 0, "Bad init of class. No zero entropy"
         egr.insert('a')
         egr.insert('b')
-        assert egr.getCurrentEntropy() == 1, "Bad entropy count for trivial case"
+        assert egr.getTotalTheoreticalEntropy() == 2, "Bad entropy count for trivial case"
         egr.reset()
         egr.insert('o')
-        assert egr.getCurrentEntropy() == 0, "Bad entropy of first event"
+        assert egr.getTotalTheoreticalEntropy() == 0, "Bad entropy of first event"
         egr.reset()
         prevEnt = -0.00001
         for x in range(8):
             egr.insert(x)
-            ent = egr.getCurrentEntropy()
+            ent = egr.getTotalTheoreticalEntropy()
             assert ent > prevEnt, "Entropy does not grow when needed"
             prevEnt = ent
         egr.reset()
@@ -56,89 +58,108 @@ class testMRGE(unittest.TestCase):
         for x in range(2, 10):
             for y in range(x):
                 egr.insert(y)
-            ent = egr.getCurrentEntropy()
+            ent = egr.getTotalTheoreticalEntropy()
             assert ent >= prevEnt, "Entropy does not grow when needed"
             prevEnt = ent
 
-    @unittest.skip("TODO: REMOVE SKIP AFTER BANK IS DONE")
-    def testRecalcDivs(self):
+    def testInsertTotal(self):
         egr = mrge.Extractor()
-        assert egr.divs == 1, "Bad divs init"
+        assert egr.totalEvents() == 0, "Bad event count to 0"
+        # shuld not complain
         egr.insert(1)
-        egr.recalcDivs()
-        assert egr.divs == 1, "Bad divs after one item"
+        assert egr.totalEvents() == 1, "Bad event count to 1"
+        egr.insert(1, 2, 3)
+        assert egr.totalEvents() == 4, "Bad event count to 4"
+        egr.insert(*range(3))
+        assert egr.totalEvents() == 7, "Bad event count to 7"
+        # should not happen in oneround but should not complain to insertion either
+        egr.insert('a', 'b', 'c')
+        egr.insert(1., 2., 3.)
+        egr.reset()
+        egr.insert(None)
+        assert egr.storage == {
+        }, "None event is not filtered from insertion to storage "+str(egr.storage)
+
+    def testGetAverageEntropyOfNext(self):
+        egr = mrge.Extractor()
+        egr.insert(*range(4))
+        assert 1.99 < egr.getAverageEntropyOfNext(
+        ) < 2.01, "Bad recalc of entropy of next for 4 unique"
+        egr = mrge.Extractor()
+        egr.insert(None)
+        assert egr.getAverageEntropyOfNext(
+        ) == 0, "Bad handling of empty dicti in get average entropy of next"
+        egr = mrge.Extractor()
+        egr.insert(1, 1)
+        assert egr.getAverageEntropyOfNext(
+        ) == 0, "Bad handling of trivial dicti in get average entropy of next"
         egr.insert(2)
-        egr.recalcDivs()
-        assert egr.divs == 2, "Bad divs after second item"
-        for x in range(3, 9):
-            egr.insert(x)
-            egr.recalcDivs()
-        assert egr.divs == 8, "Bad divs after third batch of items"
-        for x in range(2):
-            egr.insert(8)
-        egr.recalcDivs()
-        assert egr.divs < 8, "Failed to downgrade divisions"
+        egr.reset()
+        assert egr.getAverageEntropyOfNext(
+        ) == 0, "Bad reset failed to set average entropy of next to zero"
+
+    def testGetProbs(self):
+        egr = mrge.Extractor()
+        assert egr.getProbs(0) == (0, 0), "Get Probs with trivial insertion"
+        egr.insert(1)
+        assert egr.getProbs(0) == (0, 0), "Get Probs with unique insertion"
+        egr.insert(1, 1)
+        assert egr.getProbs(0) == (
+            0, 0), "Get Probs with unique insertion with repeated values"
+        egr.insert(1, 1, 2)
+        assert egr.getProbs(0) == (
+            0, 0), "Get Probs with unique insertion with repeated and various values"
+        assert egr.getProbs(2) == (fr(1, 6), fr(
+            5, 1)), "Get Probs with 1 in 6 chance "+str(egr.getProbs(2))+str(egr.storage)
+        egr.reset()
+        assert egr.getProbs(0) == (
+            0, 0), "Get Probs with trivial insertion after reset"
+        egr.insert(*range(3))
+        assert egr.getProbs(0) == (
+            fr(1, 3), 0), "Get Probs with 3 uniq and new repeated 0"
+        assert egr.getProbs(1) == (
+            fr(1, 3), 1), "Get Probs with 3 uniq and new repeated 0"
+        assert egr.getProbs(2) == (
+            fr(1, 3), 2), "Get Probs with 3 uniq and new repeated 0"
+
+    def testInsNewGetProb(self):
+        # TODO LEFT HERE
+        egr = mrge.Extractor(preNotPostRecalc=True)
+        assert egr.insNewGetProb(1110) == (
+            0, 0), "Bad insertion to probability of the first one"
+        assert egr.insNewGetProb(1111) == (fr(1, 2), fr(
+            1, 2)), "Bad calc of probability in the ins new after non-trivial insertion of second uniq"
+
+    def testGetAccumulatedEntropy(self):
+        return
+        erg = mrge.Extractor(preNotPostRecalc=True)
+        assert erg.getAccumulatedEntropy() == 0, "Bad entropy accumulator init "
+        erg.next(1)
+        erg.next(2)
+        assert erg.getAccumulatedEntropy() == 1, "Bad entropy acc calc for pre-recalc with two different numbers " + \
+            str(erg.getAccumulatedEntropy())
+        erg.insert(3)
+        erg.next(4)
+        assert erg.getAccumulatedEntropy(
+        ) == 3, "Bad entropy acc calc for pre-recalc with two nexts, one insert and one next, all unique"
+        erg.reset()
+        assert erg.getAccumulatedEntropy() == 0, "Bad reset does not reset entropy accumulator"
+
+        erg = mrge.Extractor(preNotPostRecalc=False)
+        assert erg.getAccumulatedEntropy() == 0, "Bad entropy accumulator init with post reclac"
+        erg.next(1)
+        assert erg.getAccumulatedEntropy(
+        ) == 0, "Bad entropy accumulator with first insertion in post reclac"
+        erg.next(2)
+        assert erg.getAccumulatedEntropy(
+        ) == 0, "Bad entropy accumulator with second insertion that is non-trivial"
+        erg.next(1)
+        assert erg.getAccumulatedEntropy(
+        ) == 1, "Bad entropy accumulator with thrid insertion that sould produce first bit"
 
     def testExtraction(self):
-        egr = mrge.Extractor()
-        success, values = egr.next(1)
-        assert not success and not values, "First insertion resulted in getting data. Not right"
-        s, v = egr.next(2)
-        # TODO remove comment when done
-        # assert s and v, "non-trivial insertion resulted in no data"
-        egr.reset()
-        egr.next(1)
-        s, v = egr.next(1)
-        # assert not s and not v, "trivial second insertion resulted in new data"
-        egr.reset()
-        egr.next(1)
-        s, v = egr.next(0)
-        # assert s and v == 0, "Bad reaction to the first zero insertion"
+        pass
         # TODO
-
-    def testInfoBankProbEquality(self):
-        bnk = mrge.Extractor.InfoBank(base=2)
-        iters = 1000000
-        from math import log
-        from random import random
-        # for x in range(20, 1000, 1):
-        def aw1(p): return (-p*log(p, 2), -(1-p)*log(1-p, 2))
-        def aw2(p): return (t := -p*log(p, 2)-(1-p)*log(1-p, 2), t)
-        def aw3(p): return (-log(p, 2), -log(1-p, 2))
-        def w1(p): return (1./p, 1./(1-p))
-        def w2(p): return (-log(p, 2), -log(1-p, 2))
-        def w3(p): return (-p*log(p, 2), -(1-p)*log(1-p, 2))
-        def w4(p): return (1./(1-p), 1./p)
-
-        for awn, aw in enumerate((aw1, aw2, aw3)):
-            for wn, w in enumerate((w1, w2, w3, w4)):
-                print(awn, wn)
-                for p in range(1, 11):
-                    # for x in range(3, 8):
-                    x = 2**p
-                    frac = 1./x
-                    i0 = -frac*log(frac, 2)
-                    i1 = -(1-frac)*log(1-frac, 2)
-                    n0 = n1 = 0
-                    # ________
-                    sw0, sw1 = w(frac)
-                    iw0, iw1 = aw(frac)
-                    for t in range(iters):
-                        if random() < frac:
-                            s, v = bnk.next(0, sw0, iw0)
-                        else:
-                            s, v = bnk.next(1, sw1, iw1)
-                        n0 += s*(1-v)
-                        n1 += s*v
-        #            if n0+n1 > 100:
-        #                assert 1.*(max(n0, n1) - min(n0, n1))/(n0+n1) < .010, "Bank is wrong"
-                    # hack to exclude div by 0
-                    n0 += 1
-                    n1 += 1
-                    resstr = f"{x}\t{n0}\t{n1}\t{(r:=1.*(max(n0, n1) - min(n0, n1))/(n0+n1)):.4f}\t{(d:=max(n0,n1)/min(n0,n1)):.4f}\t{d*x/(x+1):.4f}\t{d*(x-1)/x:.4f}"
-                    with open('investi.gate'+str(10+10*awn+wn), 'a') as fle:
-                        fle.write(resstr+'\n')
-                    print(resstr)
 
 
 if __name__ == "__main__":
