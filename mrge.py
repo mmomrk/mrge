@@ -68,18 +68,10 @@ class ISIterator(Iterator):
 
 
 class Extractor():
-    '''
-    inp - input file name
-    outp - output file name
-    ints - use integer divisions for generation
-    fracts - use fractional divisions for generation
-    base    -   base of output numbers
-    instream    -   iterable containing items objects comparable
-    str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c
-    '''
-
     @staticmethod
-    def initInp(inp, instream):
+    def initInp(inp: str, instream: Iterable) -> iterable:
+        ''' return something iterable: either an input file list of lines or input stream or stdin as iterable
+        '''
         retval = None
         if inp:
             with open(inp, 'r') as infile:
@@ -106,6 +98,15 @@ class Extractor():
         return retval
 
     def __init__(self, inp: str = None, outp: str = None, ints: bool = True, fracts: bool = True, base: int = 2, instream: Iterable = [], str2cmp: callable = int):
+        '''
+       inp - input file name
+       outp - output file name
+       ints - use integer divisions for generation
+       fracts - use fractional divisions for generation
+       base    -   base of output numbers
+       instream    -   iterable containing items objects comparable
+       str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c
+       '''
         # io setup:
         self.input = Extractor.initInp(inp, instream)
         self.outp = Extractor.initOutp(outp)

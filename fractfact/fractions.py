@@ -2,6 +2,8 @@
 
 from collections import OrderedDict as odi
 
+# Most of the methods here are obsolete and will be taken from fractions module
+
 
 # Wheel factorisation to return dictionary of primes and powers
 def factor(inum: int) -> dict:
@@ -58,6 +60,8 @@ def fsimp(num: int, denom: int):
 
 # Fraction simplification
 def simp(num: dict, denom: dict) -> dict:
+    if num == {}:
+        return {}, {1: 1}
     # print("Simp entr ", num,denom)
     numset = set(num.keys())
     denomset = set(denom.keys())
@@ -71,6 +75,11 @@ def simp(num: dict, denom: dict) -> dict:
         denom[prime] -= mini
         if denom[prime] == 0:
             denom.pop(prime)
+    if -1 in denom.keys():
+        denom.pop(-1)
+        # there is a chance of a bug here, but i've thrown a bunch of tests on it
+        num[-1] = 1
+
     # print("simp leave", num,denom)
     return num, denom
 
@@ -99,17 +108,33 @@ def multiplyDicti(d1: dict, d2: dict) -> dict:
 
 
 # Dictionary of prime powers to number
-def repr2num(n:dict) -> int:
-    res =1 
-    for pr,powe in n.items():
+def repr2num(n: dict) -> int:
+    if n == {}:
+        return 0
+    res = 1
+    for pr, powe in n.items():
         for _ in range(powe):
-            res*=pr
+            res *= pr
     return res
 
+
 # Honey,honey
-def fsumFrac(n1: int, d1: int, n2: int, d2: int) -> dict:
-    return sumFrac(factor(n1), factor(d2), factor(n2), factor(d2))
+def fsumFrac(fr1, fr2) -> dict:
+    n1, d1 = fr1
+    n2, d2 = fr2
+    return sumFrac(factor(n1), factor(d1), factor(n2), factor(d2))
 
 
-def sumFrac(n1: dict, d1: dict, n2: dict, d2: dict):
-    pass
+def sumFrac(in1: dict, id1: dict, in2: dict, id2: dict) -> (dict, dict):
+    if in1 == {}:
+        return simp(in2, id2)
+    if in2 == {}:
+        return simp(in1, id1)
+    n1, d1 = simp(in1, id1)
+    n2, d2 = simp(in2, id2)
+    comdenom = multiplyDicti(d1, d2)
+    numLeft = repr2num(multiplyDicti(n1, d2))
+    numRight = repr2num(multiplyDicti(d1, n2))
+    numerator = numLeft+numRight
+    #print(f"Mult {in1}/{id1} by {in2}/{id2}. WIth common denumerator {comdenom} and left num sum {numLeft} and right numsum {numRight} resulted in numerator {numerator}")
+    return simp(factor(numerator), comdenom)

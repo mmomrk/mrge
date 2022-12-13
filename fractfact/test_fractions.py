@@ -37,6 +37,8 @@ class testFractions(unittest.TestCase):
 
         num, denom = fr.simp(fr.factor(23), fr.factor(51))
         assert 23 in num and 3 in denom and 17 in denom, "Bad factor of 23/51"
+        num, denom = fr.simp(fr.factor(2), fr.factor(2))
+        assert num == {1: 1} and denom == {1: 1}, "Bad simplification of 2/2"
 
     def testMultiplicatoin(self):
         n1 = fr.factor(999)
@@ -68,6 +70,38 @@ class testFractions(unittest.TestCase):
         assert num == fr.repr2num(r1), "Check your screen resolution!"
 
     def testFractionSum(self):
+        n1, d1 = 4, 3
+        n2, d2 = 4, 3
+        rn, rd = fr.fsumFrac((n1, d1), (n2, d2))
+        resn = fr.repr2num(rn)
+        resd = fr.repr2num(rd)
+        assert resn == 8, "Bad numerator in 4/3+4/3"
+        assert resd == 3, "Bad denominator in 4/3+4/3"
+
+        def autotestFrac(n1, d1, n2, d2, rn, rd):
+            reprn, reprd = fr.fsumFrac((n1, d1), (n2, d2))
+            resn = fr.repr2num(reprn)
+            resd = fr.repr2num(reprd)
+            assert resn == rn, f"Bad numerator {resn} in {n1}/{d1}+{n2}/{d2} with dicti res {reprn} / {reprd} "
+            assert resd == rd, f"Bad denomenator {resd} in {n1}/{d1}+{n2}/{d2} with dicti res {reprn} / {reprd} "
+
+        autotestFrac(1, 1, 2, 2, 2, 1)
+        autotestFrac(1, 2, 2, 4, 1, 1)
+        # Achievement unlocked: I've used WA to correct my assert in this one:
+        autotestFrac(1, 2, 2, 3, 7, 6)
+        autotestFrac(5, 6, -1, 12, 3, 4)
+        autotestFrac(2, 1, -5, -5, 3, 1)
+        autotestFrac(1, 2048, 1, 4096, 3, 4096)
+        autotestFrac(1, 2, 1, 2, 1, 1)
+        autotestFrac(1, 2, 1, -2, 0, 1)
+        autotestFrac(1, 2, -1, 2, 0, 1)
+        autotestFrac(-1, 2, -1, 2, -1, 1)
+        autotestFrac(-1, 2, 1, -2, -1, 1)
+        autotestFrac(-1, 2, -1, -2, 0, 1)
+        autotestFrac(-1, -2, -1, -2, 1, 1)
+        autotestFrac(1, 333, 112, 999, 115, 999)
+        autotestFrac(0, 2, 0, 3, 0, 1)
+
         pass
 
 
