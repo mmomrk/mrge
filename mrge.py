@@ -98,13 +98,11 @@ class Extractor():
             retval = stdout
         return retval
 
-    def __init__(self, base: int = 2, preNotPostRecalc: bool = True, roundUp: bool = False, precision: float = 0.05, revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = int):
+    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = int):
         '''
         base    -   base of output numbers
         preNotPostRecalc    -   calculate event probability before storing the event to the statistics that probability is calculated with (see lightning probability for clarifications)
-        roundUp -   allow to round last bit to get output faster but not more correct
-        precision   -   this amount of entropy is allowed to be lost
-        revBlock    -   allow alorithm to store data silently to release output after this amount of data points
+        revBlock    -   allow algorithm to store data silently to release output after this amount of data points
         revEntropy  -   allow algorithm to store data silently to release output after this amount of entropy is available to be produced
         saveStats   -   save dictionary to this filename to resume processing with this information
         loadStats   -   load data dictionary from this filename
@@ -116,11 +114,9 @@ class Extractor():
         # Algo settings:
         assert base >= 2, "Output base should be >=2"
         self.base = base
-        # Possible security vulnerability:
+        # Possible security vulnerability: # Or perhaps a way to use objects without comparison defined
         self.prePost = preNotPostRecalc
         # Greedy parameters to configure speed vs security:
-        self.roundUp = roundUp
-        self.precision = precision
         self.revBlock = revBlock
         self.revEntropy = revEntropy
         self.storeStatisticsFName = saveStats
@@ -131,7 +127,8 @@ class Extractor():
         self.compare = str2cmp
         # Input items are stored here:
         self.storage = {}
-        # Parameters for
+        self.backlog = []
+        # Parameters for interval calculation
         self.entropyAccumulator = 0
         self.left = 0
         self.length = 1
@@ -140,6 +137,8 @@ class Extractor():
         ''' Get an item and calculate it probability based on dictionary. Also calculate probability to get something less than given item
         If there is no such item in storage then prob is zero. Adding to storage before calculating probability is handled by insNewGetProb()
         '''
+        if self.totalEvents() == 0:
+            return (0, 0)
         lessThan = 0
         for stored, count in self.storage.items():
             # Optimisation could happen here if we sort the array perhaps
@@ -151,12 +150,13 @@ class Extractor():
             return fr(self.storage[item], self.totalEvents()), lessThanFrac
         return (0, lessThanFrac)
 
-        pass
-
     def insNewGetProb(self, item):
         """ Insert item and return (its probability, probability to get item smaller than given)
         Function respects the constructor flag of pre-insertion or post-insertion probability calculation. See lightning example
         """
+        if len(self.storage.keys()) == 0:
+            self.insert(item)
+            return (0, 0)
         if self.prePost:
             self.insert(item)
         probs = self.getProbs(item)
@@ -164,13 +164,23 @@ class Extractor():
             self.insert(item)
         return probs
 
-        # recalc prob add to dicti
-        # of add to dicti, recalc prob
-        # get probability of smaller than
-        # return probability, prob smaller than
-        pass
-
     def getNumOfNewBits(self, probability):
+        # 0 accumulator in case of revBlock or revEntropy modes is a flag of block gather
+        if self.entropyAccumulator == 0:
+            if self.revBlock:
+                if self.getTotalEvents() >= self.revBlock:
+                    return self.getTotalTheoreticalEntropy()//1
+                return 0
+            if self.revEntropy:
+                theory = self.getTotalTheoreticalEntropy()
+                if theory >= self.revEntropy:
+                    return theory//1
+                return 0
+        newInfo = self.getEntropyOfThis(None, probability)
+        accu = self.getAccumulatedEntropy()
+        newBits = (accu+newInfo)//1 - accu//1
+        return newBits
+
         # check entropy increase, check bits extraction settings, calculate number of output bits on this step
         pass
 
@@ -183,7 +193,16 @@ class Extractor():
         # return number from 0..1 in given base
         pass
 
+    # TODO LEFT HERE
     def next(self, item):
+        probs = self.insNewGetProb(item)
+        prevEnt = self.entropyAccumulator
+        newBits = self.getNumOfNewBits(probs[0])
+        self.outputbits += newBits
+        print(
+            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator}")
+        self.entropyAccumulator += self.getEntropyOfThis(item, prob=probs[0])
+
         # get probability and Probability not greater than
         # add entropy accumulator, get number of new bits based on config << getNumOfNewBits
         # recalc left , recalc length
@@ -196,6 +215,7 @@ class Extractor():
         self.left = 0
         self.length = 1
         self.storage = {}
+        self.backlog = []
 
     def insert(self, *items):
         ''' Method is used for testing. To insert items without recalculating stuff in the process
@@ -204,6 +224,8 @@ class Extractor():
         for item in items:
             if item is None:
                 continue
+            if self.revBlock or self.revEntropy:
+                self.backlog.append(item)
             if item in self.storage:
                 self.storage[item] += 1
             else:
@@ -212,6 +234,14 @@ class Extractor():
     def totalEvents(self):
         # No need for special case {}
         return sum(self.storage.values())
+
+    def getEntropyOfThis(self, item, prob=None):
+        if prob is None:
+            prob = self.getProbs(item)[0]
+        if prob == 0:
+            return 0
+        ent = -log(1.*prob, self.base)
+        return ent
 
     def getAverageEntropyOfNext(self):
         if self.totalEvents() == 0:

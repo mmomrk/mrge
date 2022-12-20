@@ -98,40 +98,72 @@ class testMRGE(unittest.TestCase):
         assert egr.getAverageEntropyOfNext(
         ) == 0, "Bad reset failed to set average entropy of next to zero"
 
+    # This funciton is a mess but more tests is not less tests
     def testGetProbs(self):
-        egr = mrge.Extractor()
-        assert egr.getProbs(0) == (0, 0), "Get Probs with trivial insertion"
-        egr.insert(1)
-        assert egr.getProbs(0) == (0, 0), "Get Probs with unique insertion"
-        egr.insert(1, 1)
-        assert egr.getProbs(0) == (
-            0, 0), "Get Probs with unique insertion with repeated values"
-        egr.insert(1, 1, 2)
-        assert egr.getProbs(0) == (
-            0, 0), "Get Probs with unique insertion with repeated and various values"
-        assert egr.getProbs(2) == (fr(1, 6), fr(
-            5, 1)), "Get Probs with 1 in 6 chance "+str(egr.getProbs(2))+str(egr.storage)
+        egr = mrge.Extractor(preNotPostRecalc=False)
+        assert egr.insNewGetProb(0) == (
+            0, 0), "Get Probs with trivial insertion"
         egr.reset()
-        assert egr.getProbs(0) == (
+        egr.insert(1)
+        res = egr.insNewGetProb(0)
+        assert res == (0, 0), "Get Probs with unique insertion "+str(res)
+        egr.reset()
+        egr.insert(1, 1)
+        assert egr.insNewGetProb(0) == (
+            0, 0), "Get Probs with unique insertion with repeated values"
+        egr.reset()
+        egr.insert(1, 1)
+        egr.insert(1, 1, 2)
+        assert egr.insNewGetProb(0) == (
+            0, 0), "Get Probs with unique insertion with repeated and various values"
+        egr.reset()
+        print(egr.storage)
+        egr.insert(1, 1)
+        print("ASDFSAF", egr.storage)
+        egr.insert(1, 1, 2)
+        print(egr.storage)
+        res = egr.insNewGetProb(2)
+        assert res == (fr(1, 5), fr(
+            4, 5)), "Get Probs with 1 in 6 chance "+str(egr.storage) + str(res)
+        egr.reset()
+        assert egr.insNewGetProb(0) == (
             0, 0), "Get Probs with trivial insertion after reset"
+        egr.reset()
         egr.insert(*range(3))
         assert egr.getProbs(0) == (
             fr(1, 3), 0), "Get Probs with 3 uniq and new repeated 0"
         assert egr.getProbs(1) == (
-            fr(1, 3), 1), "Get Probs with 3 uniq and new repeated 0"
+            fr(1, 3), fr(1, 3)), "Get Probs with 3 uniq and new repeated 1"
         assert egr.getProbs(2) == (
-            fr(1, 3), 2), "Get Probs with 3 uniq and new repeated 0"
+            fr(1, 3), fr(2, 3)), "Get Probs with 3 uniq and new repeated 2"
 
     def testInsNewGetProb(self):
-        # TODO LEFT HERE
         egr = mrge.Extractor(preNotPostRecalc=True)
-        assert egr.insNewGetProb(1110) == (
-            0, 0), "Bad insertion to probability of the first one"
+        res = egr.insNewGetProb(1110)
+        assert res == (
+            0, 0), "Bad insertion to probability of the first one "+str(res)
         assert egr.insNewGetProb(1111) == (fr(1, 2), fr(
             1, 2)), "Bad calc of probability in the ins new after non-trivial insertion of second uniq"
+        assert egr.insNewGetProb(1112) == (fr(1, 3), fr(
+            2, 3)), "Bad calc of probability in the ins new after non-trivial insertion of second uniq"
+        assert egr.insNewGetProb(1110.1) == (fr(1, 4), fr(
+            1, 4)), "Bad calc of probability in the ins new after non-trivial insertion of second uniq"
+
+        egr = mrge.Extractor(preNotPostRecalc=False)
+        assert egr.insNewGetProb(1110) == (
+            0, 0), "Bad insertion to probability of the first one with post recalc of probability"
+        res = egr.insNewGetProb(1110)
+        assert res == (
+            1, 0), "Bad insertion to trivial second insertion with post recalc "+str(res)
+        assert egr.insNewGetProb(1111) == (
+            0, 1), "Bad insertion probability of new item with probability post-recalc"
+        res = egr.insNewGetProb(0)
+        assert res == (
+            0, 0), "Bad insertion probability of new item with probability post-recalc inserting 0 "+str(res)
+        assert egr.insNewGetProb(1) == (0, fr(
+            1, 4)), "Bad insertion probability of new item to the 1/4 place with probability post-recalc"
 
     def testGetAccumulatedEntropy(self):
-        return
         erg = mrge.Extractor(preNotPostRecalc=True)
         assert erg.getAccumulatedEntropy() == 0, "Bad entropy accumulator init "
         erg.next(1)
@@ -160,6 +192,50 @@ class testMRGE(unittest.TestCase):
     def testExtraction(self):
         pass
         # TODO
+
+    def testNumOfNewBits(self):
+        e = mrge.Extractor(preNotPostRecalc=True)
+        # does not affect entropy accumulator
+        e.insert(1, 2, 3)
+        assert e.getNumOfNewBits(
+            1./4) == 2, "Bad calc of new bits when testing first char with 1/4 chance"
+        # Affects entropy accumulator
+        e.next(0)
+        assert e.getNumOfNewBits(e.getProbs(
+            0)[0]) == 2, "Bad calc of new bit when nexting 1/4"
+        e.insert(1, 1, 1, 1, 1, 1, 1)
+        assert e.getNumOfNewBits(e.insNewGetProb(
+            1)[0]) == 0, "Bad new bits with very probable insertion"
+        e.reset()
+        e.next(1)
+        assert e.getNumOfNewBits(e.insNewGetProb(
+            2)[0]) == 1, "Bad new bits with 1/2 insertion"
+        assert e.getNumOfNewBits(e.insNewGetProb(
+            3)[0]) == 1, "Bad new bits with 1/3 insertion"
+        assert e.getNumOfNewBits(e.insNewGetProb(
+            4)[0]) == 2, "Bad new bits with 1/4 insertion"
+        e.reset()
+        e.next(1)
+        e.next(2)
+        e.next(3)
+        e.next(4)
+        e.next(0)
+        assert e.getNumOfNewBits(e.insNewGetProb(
+            5)[0]) == 3, "Bad new bits with 1/6 insertion"
+        e = mrge.Extractor(preNotPostRecalc=False)
+        e.insert(1, 2, 3)
+        assert e.getNumOfNewBits(1./3) == 1, "Bad new of post calc 1/3"
+        e.next(3)
+        e.insert(1, 2)
+        # 2 is because it stored .5 bit from the first 1/3 event
+        assert e.getNumOfNewBits(
+            1./3) == 2, f"Bad new of post calc of second 1/3 with entr {e.entropyAccumulator}"
+        e1 = mrge.Extractor(revBlock=4)
+        e.reset()
+        for x in range(5):
+            e.next(x)
+            e1.next(x)
+        assert e1.entropyAccumulator > e.entropyAccumulator, "Optimal block algo does not work"
 
 
 if __name__ == "__main__":
