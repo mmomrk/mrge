@@ -130,6 +130,7 @@ class Extractor():
         self.backlog = []
         # Parameters for interval calculation
         self.entropyAccumulator = 0
+        self.outputBitsCount = 0
         self.left = 0
         self.length = 1
 
@@ -168,7 +169,7 @@ class Extractor():
         # 0 accumulator in case of revBlock or revEntropy modes is a flag of block gather
         if self.entropyAccumulator == 0:
             if self.revBlock:
-                if self.getTotalEvents() >= self.revBlock:
+                if self.totalEvents() >= self.revBlock:
                     return self.getTotalTheoreticalEntropy()//1
                 return 0
             if self.revEntropy:
@@ -179,16 +180,39 @@ class Extractor():
         newInfo = self.getEntropyOfThis(None, probability)
         accu = self.getAccumulatedEntropy()
         newBits = (accu+newInfo)//1 - accu//1
-        return newBits
+        return int(newBits)
 
         # check entropy increase, check bits extraction settings, calculate number of output bits on this step
         pass
 
     def updateInterval(self, probability, probSmallerThan):
-        # update stored data on leftmost interval fraction and on interval length
-        pass
+        '''
+        update stored data on leftmost interval fraction and on interval length
+        '''
+        if probability == 0:
+            return
+        assert 0 <= probability <= 1, "Bad probability passed to updateInterval"
+        assert 0 <= probSmallerThan <= 1, "Bad integral probability passed to updateInterval"
+        self.left = self.left + self.length*probSmallerThan
+        self.length = self.length * probability
 
-    def generateOutputApproximation(self):
+    def generateOutputApproximation(self, length):
+        outputApprox = self.left+self.length/2
+        approximationApproximation = 0
+        plus = fr(1, 2)
+        retValues = []
+        step = fr(1, self.base)
+        for _ in range(length):
+            for s in range(self.base-1):
+                if outputApprox <= approximationApproximation + step:
+                    retValues.append(s)
+                    break
+                approximationApproximation += step
+            else:
+                retValues.append(self.base-1)
+            step = step/self.base
+        return retValues
+
         # calculate middle point
         # return number from 0..1 in given base
         pass
@@ -198,10 +222,17 @@ class Extractor():
         probs = self.insNewGetProb(item)
         prevEnt = self.entropyAccumulator
         newBits = self.getNumOfNewBits(probs[0])
-        self.outputbits += newBits
-        print(
-            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator}")
+        self.outputBitsCount += newBits
         self.entropyAccumulator += self.getEntropyOfThis(item, prob=probs[0])
+        print(
+            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator} with probs {probs}")
+        self.updateInterval(*probs)
+        if newBits > 0:
+            randnum = self.generateOutputApproximation(
+                int(self.entropyAccumulator//1))
+            return (True, randnum[-newBits:])
+        else:
+            return (False, [])
 
         # get probability and Probability not greater than
         # add entropy accumulator, get number of new bits based on config << getNumOfNewBits
@@ -212,6 +243,7 @@ class Extractor():
 
     def reset(self):
         self.entropyAccumulator = 0
+        self.outputBitsCount = 0
         self.left = 0
         self.length = 1
         self.storage = {}
