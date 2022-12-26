@@ -16,7 +16,7 @@ verbosity = 0
 def parseFlags():
     parser = argparse.ArgumentParser(description="A tool for extracting random bits from an external source of entropy. This is a proof of concept for a greedy extractor algorithm (hence My Random Greedy Extractor) which tries to return close to as many output bits as there is information about the entropy source. By default stdin is read for incoming information and results are sent to stdout. Input is expected to be floating point values one number per line.")
     parser.add_argument(
-        '--verbose', '-v', help="Enable verbose output of code execution. Needed for debug only", action="count", default=0)
+        '--verbose', '-v', help="Enable verbose output of code execution. Needed for debug only. INFO level is -vvv", action="count", default=0)
     parser.add_argument(
         '-i', '--input', help="Process information from file", default=None, type=str)
     parser.add_argument(
@@ -53,10 +53,10 @@ def parseargs():
     args = parseFlags()
     verbosity = args.verbose
     setLogger(verbosity)
-    eFlags={'base':args.base, 'preNotPostRecalc' : not args.post_recalc, 'revBlock':args.rev_block, 'revEntropy':args.rev_entropy, 'saveStats':args.save_stats, 'loadStats':args.load_stats, 'inp':args.input, 'outp':args.output}
+    eFlags = {'base': args.base, 'preNotPostRecalc': not args.post_recalc, 'revBlock': args.rev_block, 'revEntropy': args.rev_entropy,
+              'saveStats': args.save_stats, 'loadStats': args.load_stats, 'inp': args.input, 'outp': args.output}
     logging.debug(f"Argument space is {args}\n{eFlags}")
-    return eFlags 
-
+    return eFlags
 
 
 # Make an iterator from stdin
@@ -118,7 +118,6 @@ class Extractor():
         revBlockGenerousMode    -   TODO? keep on recalculating history until you get output (works if we get more trivial insertions than revBlock setting, hence 0 output at revBlock insertion)
         '''
         # Algo settings:
-        print(f"BASE ?{base} ", base)
         assert base >= 2, "Output base should be >=2"
         self.base = base
         # Possible security vulnerability: # Or perhaps a way to use objects without comparison defined
@@ -178,6 +177,7 @@ class Extractor():
             self.insert(item)
         return probs
 
+    # TODO redo here. This is not correct and should consider interval fit into the cell completely to avoid approximation instability
     def getNumOfNewBits(self, probability):
         # check entropy increase, check bits extraction settings, calculate number of output bits on this step
         # 0 accumulator in case of revBlock or revEntropy modes is a flag of block gather
@@ -207,21 +207,25 @@ class Extractor():
         self.left = self.left + self.length*probSmallerThan
         self.length = self.length * probability
 
+    # TODO error is around this function. Got to reconsider intervals calculation algo. Approximation gives unstable results of last digit
     def generateOutputApproximation(self, length):
         outputApprox = self.left+self.length/2
+        outputRight = self.left+self.length
         approximationApproximation = 0
         plus = fr(1, 2)
         retValues = []
         step = fr(1, self.base)
         for _ in range(length):
             for s in range(self.base-1):
-                if outputApprox <= approximationApproximation + step:
+                # if outputApprox <= approximationApproximation + step:
+                if outputRight <= approximationApproximation + step and self.left >= approximationApproximation:
                     retValues.append(s)
                     break
                 approximationApproximation += step
             else:
                 retValues.append(self.base-1)
             step = step/self.base
+        logging.debug(f"Approximation is {retValues}")
         return retValues
         # calculate middle point
         # return number from 0..1 in given base
@@ -267,10 +271,16 @@ class Extractor():
 
     def loop(self):
         for line in self.input:
+            if line == '' or line == '\n' or line == '\r\n':
+                continue
             item = self.input2object(line)
             succ, arr = self.next(item)
             if succ:
-                self.outp.write(''.join(map(str,arr)))
+                if verbosity > 3:
+                    self.outp.write('>> ')
+                self.outp.write(''.join(map(str, arr)))
+                if verbosity > 3:
+                    self.outp.write('\n')
                 self.outp.flush()
 
     def reset(self):

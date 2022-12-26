@@ -188,10 +188,6 @@ class testMRGE(unittest.TestCase):
         assert erg.getAccumulatedEntropy(
         ) == 1, "Bad entropy accumulator with thrid insertion that sould produce first bit"
 
-    def testExtraction(self):
-        pass
-        # TODO
-
     def testNumOfNewBits(self):
         e = mrge.Extractor(preNotPostRecalc=True)
         # does not affect entropy accumulator
@@ -304,30 +300,30 @@ class testMRGE(unittest.TestCase):
 
     def testBlock(self):
         revlen = 4
-        e = mrge.Extractor(revBlock = revlen)
-        for i in range(revlen -1):
+        e = mrge.Extractor(revBlock=revlen)
+        for i in range(revlen - 1):
             nexts = e.next(i)
-            assert nexts == (False,[]), "Got output before reaching revBlock "+str(nexts)
+            assert nexts == (
+                False, []), "Got output before reaching revBlock "+str(nexts)
         succ, array = e.next(555)
-        assert succ and len(array)==8, "Got bad output of buffered block of length "+str(revlen)+str(array)
-        e = mrge.Extractor(revEntropy = 11)
+        assert succ and len(
+            array) == 8, "Got bad output of buffered block of length "+str(revlen)+str(array)
+        e = mrge.Extractor(revEntropy=11)
         for i in range(20):
-            succ,bits = e.next(i)
+            succ, bits = e.next(i)
             if succ:
-                assert len(bits) == 11 and i ==4, "Buffered entropy is calculated incorrectly"
+                assert len(
+                    bits) == 11 and i == 4, "Buffered entropy is calculated incorrectly"
                 break
         revlen = 4
-        e0 = mrge.Extractor(revBlock = revlen)
+        e0 = mrge.Extractor(revBlock=revlen)
         for _ in range(revlen):
             succ, arr = e0.next(0)
             assert not succ, "Trivial insertion in buffered mode resulted in bits output"
         # This test is the motivation towards the revLenGenerousMode flag: this run could have resulted in 3 bits after inserting 556 here
         succ, arr = e0.next(556)
-        assert succ and len(arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
-        
-
-
-
+        assert succ and len(
+            arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
 
 
 if __name__ == "__main__":
