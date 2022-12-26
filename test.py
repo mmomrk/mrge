@@ -239,54 +239,94 @@ class testMRGE(unittest.TestCase):
     def testUpdateInterval(self):
         e = mrge.Extractor()
         assert e.left == 0 and e.length == 1, "Bad interval init"
-        e.updateInterval(fr(1,2),fr(1,2))
-        assert e.left == fr(1,2) and e.length ==fr(1,2), "Bad int update for 1/2, 1/2"
+        e.updateInterval(fr(1, 2), fr(1, 2))
+        assert e.left == fr(1, 2) and e.length == fr(
+            1, 2), "Bad int update for 1/2, 1/2"
         e.reset()
         e.next(1)
         e.next(0)
-        assert e.left == 0 and e.length == fr(1,2), f"Bad interval handling of first 1/2 prob {e.left}, {e.length}"
+        assert e.left == 0 and e.length == fr(
+            1, 2), f"Bad interval handling of first 1/2 prob {e.left}, {e.length}"
         e.reset()
-        e.insert(1,2,3)
+        e.insert(1, 2, 3)
         e.next(4)
-        assert e.left == fr(3,4) and e.length == fr(1,4), "Bad interval handling of first 1/4"
+        assert e.left == fr(3, 4) and e.length == fr(
+            1, 4), "Bad interval handling of first 1/4"
         e.next(1)
-        assert e.left == fr(3,4) and e.length == fr(2,20), "Bad int handling of 2/5 prob insertion after 1/4"
+        assert e.left == fr(3, 4) and e.length == fr(
+            2, 20), "Bad int handling of 2/5 prob insertion after 1/4"
         e.reset()
         for _ in range(8):
-            e.updateInterval(fr(1,2),fr(1,2))
-        assert 1- e.left  == fr(1,256) and e.length == fr(1,256), "Bad update of 8 times the 1/2 shifted 1/2"
+            e.updateInterval(fr(1, 2), fr(1, 2))
+        assert 1 - e.left == fr(1, 256) and e.length == fr(1,
+                                                           256), "Bad update of 8 times the 1/2 shifted 1/2"
 
     def testGenerateOutputApproximation(self):
-        e= mrge.Extractor()
+        e = mrge.Extractor()
         r1 = e.next(1)
-        assert r1 == (False, []) , "Bad return of first insert"
+        assert r1 == (False, []), "Bad return of first insert"
         r2 = e.next(0)
         assert r2 == (True, [0]), "Bad return of second insertion"
         e.reset()
-        e.insert(1,2,3)
+        e.insert(1, 2, 3)
         r3 = e.next(4)
-        assert r3 == (True, [1,1]), "Bad return of first 1/4 insertion"
+        assert r3 == (True, [1, 1]), "Bad return of first 1/4 insertion"
         e.reset()
-        e.insert(1,2,3)
+        e.insert(1, 2, 3)
         r4 = e.next(0)
-        assert r4 == (True, [0,0]), "Ba return of first 1/4 insertion with 0 shift"
+        assert r4 == (
+            True, [0, 0]), "Ba return of first 1/4 insertion with 0 shift"
         e.reset()
-        e.insert(*[1,2,3]*100)
+        e.insert(*[1, 2, 3]*100)
         r5 = e.next(1)
         r6 = e.next(2)
         assert r5 == (True, [0]), "Bad first return of 1/3 test"
-        assert r6 == (True, [0,1]), "Bad second return of 1/3 test"
+        assert r6 == (True, [0, 1]), "Bad second return of 1/3 test"
         e.reset()
-        e.length = fr(1,128)
+        e.length = fr(1, 128)
         e.left = 0
         rl = e.generateOutputApproximation(8)
-        assert rl == [0,0,0,0,0,0,0,0], f"Bad apprximation of 0 for 1/128 {rl}"
+        assert rl == [0, 0, 0, 0, 0, 0, 0,
+                      0], f"Bad apprximation of 0 for 1/128 {rl}"
         e3 = mrge.Extractor(base=3)
         e3.next(111)
         e3.next(222)
-        assert e3.outputBitsCount == 0, "Got one trite before 3 numbers received "+str(e3.outputBitsCount)
+        assert e3.outputBitsCount == 0, "Got one trite before 3 numbers received " + \
+            str(e3.outputBitsCount)
         res3 = e3.next(333)
-        assert res3  ==(True, [2]), "Bad retrieval of base 3"
+        assert res3 == (True, [2]), "Bad retrieval of base 3"
+
+    def testPickle(self):
+        eout = mrge.Extractor(saveStats="test.pickle")
+        eout.insert(1, 2, 3, 4)
+        ein = mrge.Extractor(loadStats="test.pickle")
+        assert ein.storage == {1: 1, 2: 1, 3: 1, 4: 1}, "Bad pickle"
+
+    def testBlock(self):
+        revlen = 4
+        e = mrge.Extractor(revBlock = revlen)
+        for i in range(revlen -1):
+            nexts = e.next(i)
+            assert nexts == (False,[]), "Got output before reaching revBlock "+str(nexts)
+        succ, array = e.next(555)
+        assert succ and len(array)==8, "Got bad output of buffered block of length "+str(revlen)+str(array)
+        e = mrge.Extractor(revEntropy = 11)
+        for i in range(20):
+            succ,bits = e.next(i)
+            if succ:
+                assert len(bits) == 11 and i ==4, "Buffered entropy is calculated incorrectly"
+                break
+        revlen = 4
+        e0 = mrge.Extractor(revBlock = revlen)
+        for _ in range(revlen):
+            succ, arr = e0.next(0)
+            assert not succ, "Trivial insertion in buffered mode resulted in bits output"
+        # This test is the motivation towards the revLenGenerousMode flag: this run could have resulted in 3 bits after inserting 556 here
+        succ, arr = e0.next(556)
+        assert succ and len(arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
+        
+
+
 
 
 
