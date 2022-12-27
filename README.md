@@ -47,31 +47,60 @@ information and results are sent to stdout. Input is expected to be floating
 point values one number per line.
 
 options:
+
   -h, --help            show this help message and exit
+
   --verbose, -v         Enable verbose output of code execution. Needed for
                         debug only. INFO level is -vvv
+
   -i INPUT, --input INPUT
                         Process information from file
+
   -o OUTPUT, --output OUTPUT
                         Send output to file
+
   -b BASE, --base BASE  will generate output in base-[base] format. Default 2
+
   -e REV_ENTROPY, --rev-entropy REV_ENTROPY
                         Collect data until able to produce this number of bits
                         (less latency, faster bit generation)
+
   -n REV_BLOCK, --rev-block REV_BLOCK
                         Collect this number of inputs, then start producing
                         output (less latency, faster bit generation). For
                         practical uses revEntropy is more recommended
+
   -p, --post-recalc     Recalculate probabilities after storing input: new
                         items are treated to have 0 probability. Useful for
                         dealing with non-comparable items (flag works, but
                         non-comparable is TODO, not implemented)
+
   -s SAVE_STATS, --save-stats SAVE_STATS
                         Save input to this file to reuse this statistics later
+
   -l LOAD_STATS, --load-stats LOAD_STATS
                         Load statistics of input from this file to get a jump-
                         start. Could be same as in the --save-stats flag
 
+
+## Example
+
+```
+$echo -e "1\n2\n3\n4\n5" > test.input
+$./mrge.py -i test.input
+111111
+
+$echo -e "1\n4\n2\n5\n3" | ./mrge.py
+110111
+
+$echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5
+00100010101
+
+$echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5 --base 7
+0642
+```
+
+Note: most likely this output will change in a little while
 
 ## Theoretical background
 
