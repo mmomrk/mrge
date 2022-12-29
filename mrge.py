@@ -72,6 +72,7 @@ class ISIterator(Iterator):
         raise StopIteration()
 
 
+# TODO: add soft reset for given accuracy to avoid rounding error accumulation perhaps
 class Extractor():
     @staticmethod
     def initInp(inp: str, instream: Iterable) -> Iterable:
@@ -146,21 +147,24 @@ class Extractor():
         self.left = 0
         self.length = 1
 
-    def getProbs(self, item):
+    @staticmethod
+    def getProbs(item, storage):
         ''' Get an item and calculate it probability based on dictionary. Also calculate probability to get something less than given item
         If there is no such item in storage then prob is zero. Adding to storage before calculating probability is handled by insNewGetProb()
         '''
-        if self.totalEvents() == 0:
+        totalEvents = sum(storage.values())
+        if totalEvents == 0:
             return (0, 0)
         lessThan = 0
-        for stored, count in self.storage.items():
+        for stored, count in storage.items():
             # Optimisation could happen here if we sort the array perhaps
             if stored >= item:
                 continue
             lessThan += count
-        lessThanFrac = fr(lessThan, self.totalEvents())
-        if item in self.storage.keys():
-            return fr(self.storage[item], self.totalEvents()), lessThanFrac
+        print(f"ACHTUNG {lessThan}, {totalEvents}")
+        lessThanFrac = fr(lessThan, totalEvents)
+        if item in storage.keys():
+            return fr(storage[item], totalEvents), lessThanFrac
         return (0, lessThanFrac)
 
     def insNewGetProb(self, item):
@@ -172,10 +176,14 @@ class Extractor():
             return (0, 0)
         if self.prePost:
             self.insert(item)
-        probs = self.getProbs(item)
+        probs = Extractor.getProbs(item, self.storage)
         if not self.prePost:
             self.insert(item)
         return probs
+
+    def getNumOfNewBits2(self):
+        # TODO
+        pass
 
     # TODO redo here. This is not correct and should consider interval fit into the cell completely to avoid approximation instability
     def getNumOfNewBits(self, probability):
@@ -200,19 +208,70 @@ class Extractor():
         '''
         update stored data on leftmost interval fraction and on interval length
         '''
+        # self.left = self.left + self.length*probSmallerThan
+        # self.length = self.length * probability
+        updatedInterval = Extractor.calcInterval(
+            (self.left, self.length), (probability, probSmallerThan))
+        if updatedInterval:
+            self.left, self.length = updatedInterval
+
+    @staticmethod
+    def calcInterval(interval, probs):
+        probability, probSmallerThan = probs
+        intLeft, intLength = interval
         if probability == 0:
             return
         assert 0 <= probability <= 1, "Bad probability passed to updateInterval"
         assert 0 <= probSmallerThan <= 1, "Bad integral probability passed to updateInterval"
-        self.left = self.left + self.length*probSmallerThan
-        self.length = self.length * probability
+        return (intLeft+intLength*probSmallerThan,
+                intLength*probability)
+
+    def generateOutputApproximation2(self, history=None):
+        intervalLeft = self.left
+        intervalRight = self.left + self.length
+        if history:
+            # TODO
+            pass
+
+        approximationApproximation = 0
+        retValues = []
+        step = fr(1, self.base)
+        coverOK = True
+        while coverOK:
+            for s in range(self.base):
+                appRight = approximationApproximation+step
+                if intervalLeft <= appRight and\
+                        intervalRight > appRight:
+                    coverOK = False
+                    break
+                # could have written big condition in one if
+                if intervalLeft < approximationApproximation and\
+                        intervalRight >= approximationApproximation:
+                    coverOK = False
+                    break
+                if intervalLeft >= approximationApproximation and \
+                        intervalRight <= appRight:
+                    retValues.append(s)
+                    break
+                elif intervalRight < intervalLeft:
+                    logging.critical(
+                        "Approximation found illogical condition {intervalRight}<{intervalLeft} on step {s}/{self.base-1} having interval step {step} and interval [{intervalLeft}:{intervalRight}]")
+                    import sys
+                    sys.exit(1)
+                approximationApproximation += step
+            else:
+                logger.warn(
+                    "Approximation moved through whole range of base and found no positive nor negative conditions")
+                return retValues
+            step = step/self.base
+        return retValues
 
     # TODO error is around this function. Got to reconsider intervals calculation algo. Approximation gives unstable results of last digit
+
     def generateOutputApproximation(self, length):
         outputApprox = self.left+self.length/2
         outputRight = self.left+self.length
         approximationApproximation = 0
-        plus = fr(1, 2)
         retValues = []
         step = fr(1, self.base)
         for _ in range(length):
@@ -227,15 +286,30 @@ class Extractor():
             step = step/self.base
         logging.debug(f"Approximation is {retValues}")
         return retValues
-        # calculate middle point
-        # return number from 0..1 in given base
-        pass
 
-    def recalcInterval(self, items):
+    @staticmethod
+    def recalcInterval2(backlog,storage):
+        left = 0
+        length = 1
+        interval = (left, length)
+        for item in backlog:
+            interval = Extractor.calcInterval(
+                interval, Extractor.getProbs(item, storage))
+        return interval
+
+    def recalcInterval(self, items, history):
+        '''
+        Reset self.left and self.length based on history taken from items array
+        '''
         self.left = 0
         self.length = 1
         for item in items:
-            self.updateInterval(*self.getProbs(item))
+            self.updateInterval(*Extractor.getProbs(item, self.storage))
+
+    def next2(self, item):
+        probs = self.insNewGetProb(item)
+        approx = self.generateOutputApproximation2()
+        newBits = len(approx) - self.outputBitsCount
 
     def next(self, item):
         probs = self.insNewGetProb(item)
@@ -247,7 +321,7 @@ class Extractor():
         if self.revBlockAccumulating or self.revEntropyAccumulating:
             if self.totalEvents() >= self.revBlock:
                 self.revBlockAccumulating = False
-            self.recalcInterval(self.backlog)
+            self.left, self.length = Extractor.recalcInterval2(self.backlog, self.storage)
             self.entropyAccumulator = self.getTotalTheoreticalEntropy()
             if self.entropyAccumulator >= self.revEntropy:
                 self.revEntropyAccumulating = False
@@ -314,7 +388,7 @@ class Extractor():
 
     def getEntropyOfThis(self, item, prob=None):
         if prob is None:
-            prob = self.getProbs(item)[0]
+            prob = Extractor.getProbs(item, self.storage)[0]
         if prob == 0:
             return 0
         ent = -log(1.*prob, self.base)
@@ -333,7 +407,7 @@ class Extractor():
             return 0
         # Sum of -n*log(p) in given base
         s = sum((-1.*v*log(1.*v/self.totalEvents(), self.base)
-                for k, v in self.storage.items()))
+                 for k, v in self.storage.items()))
         logging.debug(
             f"Calculating entropy:\nTotal {self.totalEvents()}, base {self.base}, events:\n{self.storage}\nCalculated entropy {s}")
         return s

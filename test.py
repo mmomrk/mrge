@@ -129,11 +129,11 @@ class testMRGE(unittest.TestCase):
             0, 0), "Get Probs with trivial insertion after reset"
         egr.reset()
         egr.insert(*range(3))
-        assert egr.getProbs(0) == (
+        assert mrge.Extractor.getProbs(0,egr.storage) == (
             fr(1, 3), 0), "Get Probs with 3 uniq and new repeated 0"
-        assert egr.getProbs(1) == (
+        assert mrge.Extractor.getProbs(1,egr.storage) == (
             fr(1, 3), fr(1, 3)), "Get Probs with 3 uniq and new repeated 1"
-        assert egr.getProbs(2) == (
+        assert mrge.Extractor.getProbs(2,egr.storage) == (
             fr(1, 3), fr(2, 3)), "Get Probs with 3 uniq and new repeated 2"
 
     def testInsNewGetProb(self):
@@ -196,8 +196,8 @@ class testMRGE(unittest.TestCase):
             1./4) == 2, "Bad calc of new bits when testing first char with 1/4 chance"
         # Affects entropy accumulator
         e.next(0)
-        assert e.getNumOfNewBits(e.getProbs(
-            0)[0]) == 2, "Bad calc of new bit when nexting 1/4"
+        assert e.getNumOfNewBits(mrge.Extractor.getProbs(
+            0, e.storage)[0]) == 2, "Bad calc of new bit when nexting 1/4"
         e.insert(1, 1, 1, 1, 1, 1, 1)
         assert e.getNumOfNewBits(e.insNewGetProb(
             1)[0]) == 0, "Bad new bits with very probable insertion"
@@ -324,6 +324,8 @@ class testMRGE(unittest.TestCase):
         succ, arr = e0.next(556)
         assert succ and len(
             arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
+
+        
 
 
 if __name__ == "__main__":

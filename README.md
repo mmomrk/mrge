@@ -5,7 +5,7 @@
 This is a tool to process random events into random numbers, i.e the
 randomness extractor.
 
-The input of the tool could be any (generally speaking) stream of events that could be distinguished from one another. *At the time this text is written only a subset of events that have defined compare oeration is accepted as input*.
+The input of the tool could be any (generally speaking) stream of events that could be distinguished from one another. *At the time this text is written only a subset of events that have defined compare operation is accepted as input*.
 
 The output of the tool is a stream of truly randomly distributed numbers that have the same entropy as the input source.
 
@@ -21,7 +21,7 @@ The main features of MRGE are:
 The other nice features are:
 
 - Can store its state in order to use previous statistics of the entropy source to get a jump-start when restarted
-- Has ability to sacrifice latency to get a bigger throughput (the --revBlock and the --revEntropy flags)
+- Has ability to sacrifice latency to get a bigger throughput (the --rev_block and the --rev_entropy flags)
 - Can work with stdin/stdout or files input/output (or generally speaking anything with same interfaces)
 - Can output random numbers in any base
 
