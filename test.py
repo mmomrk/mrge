@@ -129,11 +129,11 @@ class testMRGE(unittest.TestCase):
             0, 0), "Get Probs with trivial insertion after reset"
         egr.reset()
         egr.insert(*range(3))
-        assert mrge.Extractor.getProbs(0,egr.storage) == (
+        assert mrge.Extractor.getProbs(0, egr.storage) == (
             fr(1, 3), 0), "Get Probs with 3 uniq and new repeated 0"
-        assert mrge.Extractor.getProbs(1,egr.storage) == (
+        assert mrge.Extractor.getProbs(1, egr.storage) == (
             fr(1, 3), fr(1, 3)), "Get Probs with 3 uniq and new repeated 1"
-        assert mrge.Extractor.getProbs(2,egr.storage) == (
+        assert mrge.Extractor.getProbs(2, egr.storage) == (
             fr(1, 3), fr(2, 3)), "Get Probs with 3 uniq and new repeated 2"
 
     def testInsNewGetProb(self):
@@ -293,9 +293,9 @@ class testMRGE(unittest.TestCase):
         assert res3 == (True, [2]), "Bad retrieval of base 3"
 
     def testPickle(self):
-        eout = mrge.Extractor(saveStats="test.pickle")
+        eout = mrge.Extractor(saveStats=".test.pickle")
         eout.insert(1, 2, 3, 4)
-        ein = mrge.Extractor(loadStats="test.pickle")
+        ein = mrge.Extractor(loadStats=".test.pickle")
         assert ein.storage == {1: 1, 2: 1, 3: 1, 4: 1}, "Bad pickle"
 
     def testBlock(self):
@@ -325,7 +325,54 @@ class testMRGE(unittest.TestCase):
         assert succ and len(
             arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
 
-        
+    def testHistory2storage(self):
+        h2s = mrge.Extractor.history2storage
+        eventBank = h2s(range(10))
+        assert all((x == 1 for x in eventBank.values())
+                   ), "Bad history conversion for all 1"
+        eb = h2s([])
+        assert eb == {}, "Bad hist2sto for empty"
+        eb = h2s(('a', 'b', 'a'))
+        assert eb == {'a': 2, 'b': 1}, "Bad hist2sto for 'aba'"
+
+    def testGetProbsStatic(self):
+        gp = mrge.Extractor.getProbs  # (item,storage)
+        h2s = mrge.Extractor.history2storage
+        hist = []
+        for r in range(1, 3):
+            hist += range(10)
+            sto = h2s(hist)
+            for x in range(10):
+                probs = gp(x, sto)
+                assert probs == (fr(1, 10), fr(
+                    x, 10)), f"Bad prob getProbs for equal probs len 10 in round {r} for item {x} with probs {probs}"
+            probs11 = gp(11, sto)
+            assert probs11 == (
+                0, 1), "Bad prob getProbs for unexisting check in round "+str(r)
+        probs = gp(1, {})
+        assert probs[0] == 0, "Bad prob getProbs for unexisting storage"
+        probs = gp(2, h2s(range(3)))
+        assert probs == (fr(1, 3), fr(
+            2, 3)), f"Pad getProbs for 1/3 probs insertion {probs}"
+
+    # TODO
+    def testCalcIntervalStatic(self):
+        ci = mrge.Extractor.calcInterval
+        defIntl = (0, 1)
+        inl = ci(defIntl, (1, 0))
+        assert inl == defIntl, "Bad static interval recalc for trivial case"
+
+    # TODO
+    def testGetNumOfNewBits2Static(self):
+        pass
+
+    # TODO
+    def testGenerateOutputApproximation2(self):
+        pass
+
+    # TODO
+    def testRecalcInterval2(self)
+        pass
 
 
 if __name__ == "__main__":
