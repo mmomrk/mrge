@@ -355,20 +355,71 @@ class testMRGE(unittest.TestCase):
         assert probs == (fr(1, 3), fr(
             2, 3)), f"Pad getProbs for 1/3 probs insertion {probs}"
 
-    # TODO
     def testCalcIntervalStatic(self):
-        ci = mrge.Extractor.calcInterval
+        ci = mrge.Extractor.calcInterval  # curInt, probs
         defIntl = (0, 1)
         inl = ci(defIntl, (1, 0))
         assert inl == defIntl, "Bad static interval recalc for trivial case"
+        probs = (fr(1, 3), fr(1, 2))
+        inl = ci(defIntl, probs)
+        assert inl == (fr(1, 2), fr(
+            1, 3)), "Bad calcInterval behav for 1/3, 1/2"
+        inl2 = ci(inl, probs)
+        assert inl2 == (fr(2, 3), fr(
+            1, 9)), f"Bad calcInterval for the second 1/3, 1/2 {inl2}"
+        probsFromSto = mrge.Extractor.getProbs(1, {1: 5, 2: 1, 3: 4, 4: 0})
+        inlFromSto = ci(defIntl, probsFromSto)
+        assert inlFromSto == (
+            0, fr(1/2)), "Bad calcInterval from handwritten storage"
 
     # TODO
     def testGetNumOfNewBits2Static(self):
         pass
 
-    # TODO
+    # TODO add tests with history=something
     def testGenerateOutputApproximation2(self):
-        pass
+        e = mrge.Extractor()
+        goa = e.generateOutputApproximation2
+        ci = mrge.Extractor.calcInterval  # interval, probs
+        gp = mrge.Extractor.getProbs  # item, storage
+        e.next2(1)
+        a1 = goa()
+        assert a1 == [], "Bad return of first insert"
+        e.next2(0)
+        a2 = goa()
+        assert a2 == [0], "Bad return of second insertion"
+        e.reset()
+        e.insert(1, 2, 3)
+        e.next2(4)
+        a3 = goa()
+        assert a3 == [
+            1, 1], "Bad return of first 4 after 1 2 3 insertion "+str(a3)
+        e.reset()
+        e.insert(1, 2, 3)
+        e.next2(0)
+        a4 = goa()
+        assert a4 == [0, 0], "Bad return of 0 after 1,2,3 insertion"
+        e.reset()
+        e.insert(*[1, 2, 3]*100)
+        e.next2(1)
+        e.next2(1)
+        a5 = goa()
+        assert a5 == [0, 0, 0], "Bad return of p=1/3 test "+str(a5)
+        e.reset()
+        e.length = fr(1, 128)
+        e.left = 0
+        al = goa()
+        assert al == [0, 0, 0, 0, 0, 0, 0], f"Bad apprximation of 0 for 1/128 (2^7) {al}"
+        e3 = mrge.Extractor(base=3)
+        e3.next2(111)
+        e3.next2(222)
+        assert e3.outputBitsCount == 0, "Got one trite before 3 numbers received " + \
+            str(e3.outputBitsCount)
+        e3.next2(333)
+        res3 = e3.generateOutputApproximation2()
+        assert res3 == [2], "Bad retrieval of base 3 "+str(res3)
+
+
 
     # TODO
     def testRecalcInterval2(self):

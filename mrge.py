@@ -24,9 +24,9 @@ def parseFlags():
     parser.add_argument(
         '-b', '--base', help="will generate output in base-[base] format. Default 2", default=2, type=int)
     parser.add_argument(
-        '-e', '--rev-entropy', help="Collect data until able to produce this number of bits (less latency, faster bit generation)", type=int, default=0)
+        '-e', '--rev-entropy', help="Collect data until able to produce this number of bits (less latency, faster bit generation). If rev block and rev entropy are set together then the first one to occur will be executed", type=int, default=0)
     parser.add_argument(
-        '-n', '--rev-block', help="Collect this number of inputs, then start producing output (less latency, faster bit generation). For practical uses revEntropy is more recommended", type=int, default=0)
+        '-n', '--rev-block', help="Collect this number of inputs, then start producing output (less latency, faster bit generation). For practical uses revEntropy is more recommended. If rev block and rev entropy are set together then the first one to occur will be executed", type=int, default=0)
     parser.add_argument(
         '-p', '--post-recalc', help="Recalculate probabilities after storing input: new items are treated to have 0 probability. Useful for dealing with non-comparable items (flag works, but non-comparable is TODO, not implemented)", action='store_true', default=False)
     parser.add_argument(
@@ -162,7 +162,6 @@ class Extractor():
             if stored >= item:
                 continue
             lessThan += count
-        print(f"ACHTUNG {lessThan}, {totalEvents}")
         lessThanFrac = fr(lessThan, totalEvents)
         if item in storage.keys():
             return fr(storage[item], totalEvents), lessThanFrac
@@ -191,6 +190,7 @@ class Extractor():
         if revBlock:
             if revBlock < len(history):
                 return 0
+            logging.critical("THIS IS UNFINISHED YET")
             generateOutputApproximation2
         # TODO
         pass
@@ -230,7 +230,8 @@ class Extractor():
         probability, probSmallerThan = probs
         intLeft, intLength = interval
         if probability == 0:
-            return
+            # watch it. seems logical
+            return interval
         assert 0 <= probability <= 1, "Bad probability passed to updateInterval"
         assert 0 <= probSmallerThan <= 1, "Bad integral probability passed to updateInterval"
         return (intLeft+intLength*probSmallerThan,
@@ -259,16 +260,20 @@ class Extractor():
         step=fr(1, self.base)
         coverOK=True
         while coverOK:
+            logging.debug("WAAGH")
             for s in range(self.base):
                 appRight=approximationApproximation+step
-                if intervalLeft <= appRight and\
+                logging.debug(f"Approx iter {s}/{self.base}, step {step}, interval lr {intervalLeft} {intervalRight}, approx LR {approximationApproximation} {appRight}")
+                if intervalLeft < appRight and\
                         intervalRight > appRight:
                     coverOK=False
+                    logging.debug("approx break Right condition")
                     break
                 # could have written big condition in one if
                 if intervalLeft < approximationApproximation and\
                         intervalRight >= approximationApproximation:
                     coverOK=False
+                    logging.debug("approx break Left condition")
                     break
                 if intervalLeft >= approximationApproximation and \
                         intervalRight <= appRight:
@@ -310,6 +315,11 @@ class Extractor():
 
     @ staticmethod
     def recalcInterval2(backlog, storage):
+        '''
+        A method to get interval based on history. Used to recalc approximation interval for the revEnt and revBlock cases.
+        backlog -   array of history
+        storage -   dictionary of cases. May contain more events than backlog
+        '''
         left=0
         length=1
         interval=(left, length)
@@ -329,8 +339,14 @@ class Extractor():
 
     def next2(self, item):
         probs=self.insNewGetProb(item)
+        self.left, self.length = Extractor.calcInterval((self.left,self.length),probs)
         approx=self.generateOutputApproximation2()
         newBits=len(approx) - self.outputBitsCount
+        if self.revBlockAccumulating or self.revEntropyAccumulating:
+            pass
+        if newBits:
+            return (True, approx[-newBits:])
+        return (False, [])
 
     def next(self, item):
         probs=self.insNewGetProb(item)
