@@ -371,7 +371,7 @@ class testMRGE(unittest.TestCase):
         pass
 
     # TODO
-    def testRecalcInterval2(self)
+    def testRecalcInterval2(self):
         pass
 
 

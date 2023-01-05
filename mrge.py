@@ -251,7 +251,7 @@ class Extractor():
         intervalRight = self.left + self.length
         if history:
             # TODO this is completely unfinished
-            intervalLeft, intervalRight = Extractor.recalcInterval2(history, history2storage(history)
+            intervalLeft, intervalRight = Extractor.recalcInterval2(history, history2storage(history))
             pass
 
         approximationApproximation=0
