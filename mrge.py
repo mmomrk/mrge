@@ -9,9 +9,6 @@ import pickle
 
 verbosity = 0
 
-# TODO test multibank implement vs single bank fractional addition
-# TODO add retro- vs avant- probability recalculation
-
 
 def parseFlags():
     parser = argparse.ArgumentParser(description="A tool for extracting random bits from an external source of entropy. This is a proof of concept for a greedy extractor algorithm (hence My Random Greedy Extractor) which tries to return close to as many output bits as there is information about the entropy source. By default stdin is read for incoming information and results are sent to stdout. Input is expected to be floating point values one number per line.")
@@ -182,23 +179,30 @@ class Extractor():
         return probs
 
     @staticmethod
-    def getNumOfNewBits2(approxLen: int, prevBitsNum: int, revEnt: int, revBlock: int, history: list):
-        if approxLen == 0:
-            return 0
-        if prevBitsNum == approxLen:
-            return 0
-        if revBlock:
-            if revBlock < len(history):
-                return 0
-            logging.critical("THIS IS UNFINISHED YET")
-            generateOutputApproximation2
-        # TODO
-        pass
+    def getNumOfNewBits2(approxLen: int, prevBitsNum: int,  history: list = [], storage: dict = None, revEnt: int = 0, revBlock: int = 0, base: int = 2):
+        '''
+        Return amount of bits to be taken from approximation's back
+        If revBlock or revEnt is enabled, then history is considered for recalculation of approximation length with given base
+        prevBitsNum will act as a deactivator for revEnt and revBlock action
+        '''
+        if prevBitsNum == 0 and \
+                (revEnt or (revBlock and len(history) >= revBlock)):
+            if not storage:
+                storage = Extractor.history2storage(history)
+            # Extractor.soutputApproximation2(history=history, storage=Extractor.history2storage(history), base=base)
+            # TODO BUG HERE
+            newApprox = Extractor.soutputApproximation2(
+                history=history, storage=storage, base=base)
+            logging.debug(f"new approximation for rev check {newApprox}")
+            approxLen = len(newApprox)
+        return approxLen-prevBitsNum
 
     # TODO redo here. This is not correct and should consider interval fit into the cell completely to avoid approximation instability
     def getNumOfNewBits(self, probability):
-        # check entropy increase, check bits extraction settings, calculate number of output bits on this step
-        # 0 accumulator in case of revBlock or revEntropy modes is a flag of block gather
+        '''
+        check entropy increase, check bits extraction settings, calculate number of output bits on this step
+        0 accumulator in case of revBlock or revEntropy modes is a flag of block gather
+        '''
         if self.outputBitsCount == 0:
             if self.revBlock:
                 if self.totalEvents() >= self.revBlock:
@@ -225,7 +229,7 @@ class Extractor():
         if updatedInterval:
             self.left, self.length = updatedInterval
 
-    @staticmethod
+    @ staticmethod
     def calcInterval(interval, probs):
         probability, probSmallerThan = probs
         intLeft, intLength = interval
@@ -237,7 +241,7 @@ class Extractor():
         return (intLeft+intLength*probSmallerThan,
                 intLength*probability)
 
-    @staticmethod
+    @ staticmethod
     def history2storage(history):
         from collections import defaultdict
         storage = defaultdict(lambda: 0)
@@ -246,33 +250,39 @@ class Extractor():
             storage[event] += 1
         return storage
 
-    # TODO test
     def generateOutputApproximation2(self, history=None):
+        '''
+        return full binary sequence based on the state of class
+        '''
         intervalLeft = self.left
         intervalRight = self.left + self.length
         if history:
-            # TODO this is completely unfinished
-            intervalLeft, intervalRight = Extractor.recalcInterval2(history, history2storage(history))
-            pass
+            intervalLeft, length = Extractor.recalcInterval2(
+                history, self.storage)
+            intervalRight = intervalLeft+length
+        return Extractor.soutputApproximation2(history=history, storage=self.storage, base=self.base, intervalLeft=intervalLeft, intervalRight=intervalRight)
 
-        approximationApproximation=0
-        retValues=[]
-        step=fr(1, self.base)
-        coverOK=True
+    @ staticmethod
+    def soutputApproximation2(history=None, storage=None, base=2, intervalLeft=0, intervalRight=1):
+        approximationApproximation = 0
+        retValues = []
+        step = fr(1, base)
+        coverOK = True
+        # Purists will refactor here
         while coverOK:
-            logging.debug("WAAGH")
-            for s in range(self.base):
-                appRight=approximationApproximation+step
-                logging.debug(f"Approx iter {s}/{self.base}, step {step}, interval lr {intervalLeft} {intervalRight}, approx LR {approximationApproximation} {appRight}")
+            for s in range(base):
+                appRight = approximationApproximation+step
+                logging.debug(
+                    f"Approx iter {s}/{base}, step {step}, interval lr {intervalLeft} {intervalRight}, approx LR {approximationApproximation} {appRight}")
                 if intervalLeft < appRight and\
                         intervalRight > appRight:
-                    coverOK=False
+                    coverOK = False
                     logging.debug("approx break Right condition")
                     break
                 # could have written big condition in one if
                 if intervalLeft < approximationApproximation and\
                         intervalRight >= approximationApproximation:
-                    coverOK=False
+                    coverOK = False
                     logging.debug("approx break Left condition")
                     break
                 if intervalLeft >= approximationApproximation and \
@@ -281,7 +291,7 @@ class Extractor():
                     break
                 elif intervalRight < intervalLeft:
                     logging.critical(
-                        "Approximation found illogical condition {intervalRight}<{intervalLeft} on step {s}/{self.base-1} having interval step {step} and interval [{intervalLeft}:{intervalRight}]")
+                        "Approximation found illogical condition {intervalRight}<{intervalLeft} on step {s}/{base-1} having interval step {step} and interval [{intervalLeft}:{intervalRight}]")
                     import sys
                     sys.exit(1)
                 approximationApproximation += step
@@ -289,17 +299,15 @@ class Extractor():
                 logger.warn(
                     "Approximation moved through whole range of base and found no positive nor negative conditions")
                 return retValues
-            step=step/self.base
+            step = step/base
         return retValues
 
-    # TODO error is around this function. Got to reconsider intervals calculation algo. Approximation gives unstable results of last digit
-
     def generateOutputApproximation(self, length):
-        outputApprox=self.left+self.length/2
-        outputRight=self.left+self.length
-        approximationApproximation=0
-        retValues=[]
-        step=fr(1, self.base)
+        outputApprox = self.left+self.length/2
+        outputRight = self.left+self.length
+        approximationApproximation = 0
+        retValues = []
+        step = fr(1, self.base)
         for _ in range(length):
             for s in range(self.base-1):
                 # if outputApprox <= approximationApproximation + step:
@@ -309,7 +317,7 @@ class Extractor():
                 approximationApproximation += step
             else:
                 retValues.append(self.base-1)
-            step=step/self.base
+            step = step/self.base
         logging.debug(f"Approximation is {retValues}")
         return retValues
 
@@ -320,11 +328,11 @@ class Extractor():
         backlog -   array of history
         storage -   dictionary of cases. May contain more events than backlog
         '''
-        left=0
-        length=1
-        interval=(left, length)
+        left = 0
+        length = 1
+        interval = (left, length)
         for item in backlog:
-            interval=Extractor.calcInterval(
+            interval = Extractor.calcInterval(
                 interval, Extractor.getProbs(item, storage))
         return interval
 
@@ -332,42 +340,45 @@ class Extractor():
         '''
         Reset self.left and self.length based on history taken from items array
         '''
-        self.left=0
-        self.length=1
+        self.left = 0
+        self.length = 1
         for item in items:
             self.updateInterval(*Extractor.getProbs(item, self.storage))
 
     def next2(self, item):
-        probs=self.insNewGetProb(item)
-        self.left, self.length = Extractor.calcInterval((self.left,self.length),probs)
-        approx=self.generateOutputApproximation2()
-        newBits=len(approx) - self.outputBitsCount
+        probs = self.insNewGetProb(item)
+        self.left, self.length = Extractor.calcInterval(
+            (self.left, self.length), probs)
+        approx = self.generateOutputApproximation2()
+        newBits = len(approx) - self.outputBitsCount
         if self.revBlockAccumulating or self.revEntropyAccumulating:
             pass
         if newBits:
             return (True, approx[-newBits:])
+        logging.debug(
+            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
         return (False, [])
 
     def next(self, item):
-        probs=self.insNewGetProb(item)
-        newBits=self.getNumOfNewBits(probs[0])
+        probs = self.insNewGetProb(item)
+        newBits = self.getNumOfNewBits(probs[0])
         self.entropyAccumulator += self.getEntropyOfThis(item, prob=probs[0])
         self.updateInterval(*probs)
         logging.debug(
             f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
         if self.revBlockAccumulating or self.revEntropyAccumulating:
             if self.totalEvents() >= self.revBlock:
-                self.revBlockAccumulating=False
-            self.left, self.length=Extractor.recalcInterval2(
+                self.revBlockAccumulating = False
+            self.left, self.length = Extractor.recalcInterval2(
                 self.backlog, self.storage)
-            self.entropyAccumulator=self.getTotalTheoreticalEntropy()
+            self.entropyAccumulator = self.getTotalTheoreticalEntropy()
             if self.entropyAccumulator >= self.revEntropy:
-                self.revEntropyAccumulating=False
+                self.revEntropyAccumulating = False
             logging.debug(
                 f"Recalculated stuff due to block nature. Now inserted {item} to form {self.storage} now entorpy is {self.entropyAccumulator} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
         if newBits > 0:
             # If in block mode and it's time to spit new bits: recalc interval and update entropyAccumulator accordingly
-            randnum=self.generateOutputApproximation(
+            randnum = self.generateOutputApproximation(
                 int(self.entropyAccumulator//1))
             self.outputBitsCount += newBits
             return (True, randnum[-newBits:])
@@ -385,8 +396,8 @@ class Extractor():
         for line in self.input:
             if line == '' or line == '\n' or line == '\r\n':
                 continue
-            item=self.input2object(line)
-            succ, arr=self.next(item)
+            item = self.input2object(line)
+            succ, arr = self.next(item)
             if succ:
                 if verbosity > 3:
                     self.outp.write('>> ')
@@ -396,12 +407,12 @@ class Extractor():
                 self.outp.flush()
 
     def reset(self):
-        self.entropyAccumulator=0
-        self.outputBitsCount=0
-        self.left=0
-        self.length=1
-        self.storage={}
-        self.backlog=[]
+        self.entropyAccumulator = 0
+        self.outputBitsCount = 0
+        self.left = 0
+        self.length = 1
+        self.storage = {}
+        self.backlog = []
 
     def insert(self, *items):
         ''' Method is used for testing. To insert items without recalculating stuff in the process
@@ -415,7 +426,7 @@ class Extractor():
             if item in self.storage:
                 self.storage[item] += 1
             else:
-                self.storage[item]=1
+                self.storage[item] = 1
         if self.storeStatisticsFName:
             with open(self.storeStatisticsFName, 'wb') as outFile:
                 pickle.dump(self.storage, outFile)
@@ -426,10 +437,10 @@ class Extractor():
 
     def getEntropyOfThis(self, item, prob=None):
         if prob is None:
-            prob=Extractor.getProbs(item, self.storage)[0]
+            prob = Extractor.getProbs(item, self.storage)[0]
         if prob == 0:
             return 0
-        ent=-log(1.*prob, self.base)
+        ent = -log(1.*prob, self.base)
         return ent
 
     def getAverageEntropyOfNext(self):
@@ -444,7 +455,7 @@ class Extractor():
         if not self.storage:
             return 0
         # Sum of -n*log(p) in given base
-        s=sum((-1.*v*log(1.*v/self.totalEvents(), self.base)
+        s = sum((-1.*v*log(1.*v/self.totalEvents(), self.base)
                  for k, v in self.storage.items()))
         logging.debug(
             f"Calculating entropy:\nTotal {self.totalEvents()}, base {self.base}, events:\n{self.storage}\nCalculated entropy {s}")
@@ -452,6 +463,6 @@ class Extractor():
 
 
 if __name__ == "__main__":
-    params=parseargs()
-    e=Extractor(**params)
+    params = parseargs()
+    e = Extractor(**params)
     e.loop()

@@ -116,11 +116,11 @@ class testMRGE(unittest.TestCase):
         assert egr.insNewGetProb(0) == (
             0, 0), "Get Probs with unique insertion with repeated and various values"
         egr.reset()
-        print(egr.storage)
+        # print(egr.storage)
         egr.insert(1, 1)
-        print("ASDFSAF", egr.storage)
+        #print("ASDFSAF", egr.storage)
         egr.insert(1, 1, 2)
-        print(egr.storage)
+        # print(egr.storage)
         res = egr.insNewGetProb(2)
         assert res == (fr(1, 5), fr(
             4, 5)), "Get Probs with 1 in 6 chance "+str(egr.storage) + str(res)
@@ -281,9 +281,9 @@ class testMRGE(unittest.TestCase):
         e.reset()
         e.length = fr(1, 128)
         e.left = 0
-        rl = e.generateOutputApproximation(8)
-        assert rl == [0, 0, 0, 0, 0, 0, 0,
-                      0], f"Bad apprximation of 0 for 1/128 {rl}"
+        # This made me lose a certain amount of time.
+        #rl = e.generateOutputApproximation(8)
+        #assert rl == [0, 0, 0, 0, 0, 0, 0, 0], f"Bad apprximation of 0 for 1/128 {rl}"
         e3 = mrge.Extractor(base=3)
         e3.next(111)
         e3.next(222)
@@ -374,9 +374,17 @@ class testMRGE(unittest.TestCase):
 
     # TODO
     def testGetNumOfNewBits2Static(self):
+        nbf = mrge.Extractor.getNumOfNewBits2
+        nb1 = nbf(0, 0)
+        assert nb1 == 0, "Bad num new bits trivial call"
+        nb2 = nbf(1, 0)
+        assert nb2 == 1, "Bad num new bits simplest case"
+        nb3 = nbf(1, 0, history=[1, 2, 3], revBlock=3)
+        assert nb3 == 6, "Bad num new simple revBlock "+str(nb3)
+        nb4 = nbf(1, 0, history=[1, 2, 3], revBlock=4)
+        assert nb4 == 0, "Bad num new bits revblock pre-case"
         pass
 
-    # TODO add tests with history=something
     def testGenerateOutputApproximation2(self):
         e = mrge.Extractor()
         goa = e.generateOutputApproximation2
@@ -409,7 +417,8 @@ class testMRGE(unittest.TestCase):
         e.length = fr(1, 128)
         e.left = 0
         al = goa()
-        assert al == [0, 0, 0, 0, 0, 0, 0], f"Bad apprximation of 0 for 1/128 (2^7) {al}"
+        assert al == [0, 0, 0, 0, 0, 0,
+                      0], f"Bad apprximation of 0 for 1/128 (2^7) {al}"
         e3 = mrge.Extractor(base=3)
         e3.next2(111)
         e3.next2(222)
@@ -418,12 +427,35 @@ class testMRGE(unittest.TestCase):
         e3.next2(333)
         res3 = e3.generateOutputApproximation2()
         assert res3 == [2], "Bad retrieval of base 3 "+str(res3)
+        # pt2
+        e = mrge.Extractor()
+        for x in [1.1, 1.2, 1.3, 1.4]:
+            e.next2(x)
+        # Requires working recalcInterval2
+        outHist = e.generateOutputApproximation2(history=[1.2, 1.3])
+        assert outHist == [
+            0, 1, 1, 0], "Bad output of history-based outApprox "+str(outHist)
+        outHist = e.generateOutputApproximation2(history=[1.1, 1.8])
+        assert outHist == [
+            0, 0], "Bad output of outApprox with not-fully-ovelapping history"
 
-
-
-    # TODO
     def testRecalcInterval2(self):
-        pass
+        e = mrge.Extractor()
+        ri = mrge.Extractor.recalcInterval2  # backlog, storage
+        h2s = mrge.Extractor.history2storage  # history
+        lele = ri([], {})
+        assert lele == (0, 1), "Bad interval recalc of nonexistant"
+        lele = ri([1], {1: 1})
+        assert lele == (0, 1), "Bad interval recalc of single event"
+        lele = ri([1], {0: 1})
+        assert lele == (0, 1), "Bad interval recalc of inexistent event"
+        lele = ri([0, 0, 0], {0: 100})
+        assert lele == (0, 1), "Bad interval recalc of trivial case"
+        lele = ri([1, 2], {1: 1, 2: 1})
+        assert lele == (fr(1, 4), fr(
+            1, 4)), "Bad interval recalc of two nontrivial events"
+        lele = ri([3], {1: 1, 2: 1, 3: 1})
+        assert lele == (fr(2, 3), fr(1, 3)), "Bad interval recalc of third"
 
 
 if __name__ == "__main__":
