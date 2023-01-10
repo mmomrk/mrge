@@ -185,16 +185,24 @@ class Extractor():
         If revBlock or revEnt is enabled, then history is considered for recalculation of approximation length with given base
         prevBitsNum will act as a deactivator for revEnt and revBlock action
         '''
-        if prevBitsNum == 0 and \
-                (revEnt or (revBlock and len(history) >= revBlock)):
-            if not storage:
-                storage = Extractor.history2storage(history)
-            # Extractor.soutputApproximation2(history=history, storage=Extractor.history2storage(history), base=base)
-            # TODO BUG HERE
-            newApprox = Extractor.soutputApproximation2(
-                history=history, storage=storage, base=base)
-            logging.debug(f"new approximation for rev check {newApprox}")
-            approxLen = len(newApprox)
+        logging.debug(
+            f"Entered with {approxLen}, {prevBitsNum}, {history}, {revEnt},{revBlock}")
+        # Perhaps there is a better way to rewrite these conditions
+        if prevBitsNum == 0 and (revBlock or revEnt):
+            if revBlock and len(history) < revBlock:
+                return 0
+            if revEnt or (revBlock and len(history) >= revBlock):
+                if not storage:
+                    storage = Extractor.history2storage(history)
+                # Extractor.soutputApproximation2(history=history, storage=Extractor.history2storage(history), base=base)
+                # TODO BUG HERE
+                logging.debug("ACHTUNG")
+                newApprox = Extractor.soutputApproximation2(
+                    history=history, storage=storage, base=base)
+                logging.debug(f"new approximation for rev check {newApprox}")
+                approxLen = len(newApprox)
+            if revEnt and approxLen < revEnt:
+                return 0
         return approxLen-prevBitsNum
 
     # TODO redo here. This is not correct and should consider interval fit into the cell completely to avoid approximation instability
@@ -256,19 +264,21 @@ class Extractor():
         '''
         intervalLeft = self.left
         intervalRight = self.left + self.length
-        if history:
-            intervalLeft, length = Extractor.recalcInterval2(
-                history, self.storage)
-            intervalRight = intervalLeft+length
         return Extractor.soutputApproximation2(history=history, storage=self.storage, base=self.base, intervalLeft=intervalLeft, intervalRight=intervalRight)
 
     @ staticmethod
     def soutputApproximation2(history=None, storage=None, base=2, intervalLeft=0, intervalRight=1):
+        logging.debug(
+            f"Entering approx with hist {history}, stor {storage} LR:{intervalLeft}..{intervalRight}")
+        if history:
+            intervalLeft, length = Extractor.recalcInterval2(
+                history, storage)
+            intervalRight = intervalLeft+length
         approximationApproximation = 0
         retValues = []
         step = fr(1, base)
         coverOK = True
-        # Purists will refactor here
+        # Purists will refactor here. This is essentially a base-inary search of interval
         while coverOK:
             for s in range(base):
                 appRight = approximationApproximation+step
@@ -407,11 +417,20 @@ class Extractor():
                 self.outp.flush()
 
     def reset(self):
+        '''
+        This is complete reset of the extractor state
+        '''
+        self.softReset()
+        self.storage = {}
+
+    def softReset(self):
+        '''
+        This is a reset to allow saving of storage. This will lose some of the accumulated entropy, but will allow the fraction maths to be reset and start accumulating scary numbers again
+        '''
         self.entropyAccumulator = 0
         self.outputBitsCount = 0
         self.left = 0
         self.length = 1
-        self.storage = {}
         self.backlog = []
 
     def insert(self, *items):

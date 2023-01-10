@@ -372,18 +372,25 @@ class testMRGE(unittest.TestCase):
         assert inlFromSto == (
             0, fr(1/2)), "Bad calcInterval from handwritten storage"
 
-    # TODO
     def testGetNumOfNewBits2Static(self):
         nbf = mrge.Extractor.getNumOfNewBits2
+        # def getNumOfNewBits2(approxLen: int, prevBitsNum: int,  history: list = [], storage: dict = None, revEnt: int = 0, revBlock: int = 0, base: int = 2):
         nb1 = nbf(0, 0)
         assert nb1 == 0, "Bad num new bits trivial call"
         nb2 = nbf(1, 0)
-        assert nb2 == 1, "Bad num new bits simplest case"
-        nb3 = nbf(1, 0, history=[1, 2, 3], revBlock=3)
-        assert nb3 == 6, "Bad num new simple revBlock "+str(nb3)
+        assert nb2 == 1, "Bad num new bits simplest case "+str(nb2)
+        nb3 = nbf(1, 0, history=[1, 2, 3, 4], revBlock=4)
+        assert nb3 == 8, "Bad num new simple revBlock "+str(nb3)
         nb4 = nbf(1, 0, history=[1, 2, 3], revBlock=4)
-        assert nb4 == 0, "Bad num new bits revblock pre-case"
-        pass
+        assert nb4 == 0, "Bad num new bits revblock pre-case "+str(nb4)
+        # Should ignore approxLen and recalc it inside
+        nb5 = nbf(999, 0, history=[1, 2, 3, 4], revEnt=8)
+        assert nb5 == 8, "Bad num new bits revEnt"
+        nb6 = nbf(2, 1, history=[1, 2, 3, 4], revEnt=8)
+        assert nb6 == 1, "Bad num new bits revent off by nonzero prevBits"
+        nb7 = nbf(999, 0, history=[2, 3, 4], revEnt=8)
+        assert nb7 == 0, "Bad num bew bits revEnt off by not enough info " + \
+            str(nb7)
 
     def testGenerateOutputApproximation2(self):
         e = mrge.Extractor()

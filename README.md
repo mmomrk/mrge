@@ -116,6 +116,12 @@ I got fired and have some time for an old project of mine. Perhaps it could be w
 
 When 1.0 version is released I'll check if it is possible and worth the effort to integrate it into The Kernel.
 
+## Further development
+
+- Use it to track unnatural package activity in the local network
+- Second order extractor to track and fix input distribution drift
+- Server-side anti-bot
+
 ## Licence
 
 MIT. Can't stop Rock and Roll
