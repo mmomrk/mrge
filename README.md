@@ -108,13 +108,18 @@ The tool constantly updates a probability function and probability density of th
 
 ## Known bugs
 
-- The output of the approximation method is unstable. Have to bind getNumOfNewBits method to it
+- TBD
 
 ## Purpose
 
 I got fired and have some time for an old project of mine. Perhaps it could be worth a PhD or a cookie or something. Or perhaps it has been invented before and published by somebody. 
 
 When 1.0 version is released I'll check if it is possible and worth the effort to integrate it into The Kernel.
+
+## TODO
+
+- Add handling of non-comparable input
+- Add rounding flag for soft-resetting
 
 ## Further development
 

@@ -186,7 +186,7 @@ class Extractor():
         prevBitsNum will act as a deactivator for revEnt and revBlock action
         '''
         logging.debug(
-            f"Entered with {approxLen}, {prevBitsNum}, {history}, {revEnt},{revBlock}")
+            f"Entered gNONB2 with apprLen {approxLen}, prevBits {prevBitsNum}, hist {history}, revEnt/Block {revEnt},{revBlock}")
         # Perhaps there is a better way to rewrite these conditions
         if prevBitsNum == 0 and (revBlock or revEnt):
             if revBlock and len(history) < revBlock:
@@ -361,12 +361,14 @@ class Extractor():
         self.left, self.length = Extractor.calcInterval(
             (self.left, self.length), probs)
         approx = self.generateOutputApproximation2()
-        newBits = Extractor.getNumOfNewBits2(len(approx), self.outputBitsCount, history=self.backlog, storage=self.storage, revEnt = self.revEntropy, revBlock = self.revBlock, base=self.base)
-        if self.revBlock or self.revEntropy and newBits:
+        newBits = Extractor.getNumOfNewBits2(len(approx), self.outputBitsCount, history=self.backlog,
+                                             storage=self.storage, revEnt=self.revEntropy, revBlock=self.revBlock, base=self.base)
+        if (self.revBlock or self.revEntropy) and newBits:
+            logging.debug("Detected rev-Block/Entropy been satisfied")
             self.revBlock = 0
             self.revEntropy = 0
             approx = self.generateOutputApproximation2(self.backlog)
-        self.entropyAccumulator += self.getEntropyOfThis(item,prob=probs[0])
+        self.entropyAccumulator += self.getEntropyOfThis(item, prob=probs[0])
         self.outputBitsCount += newBits
         logging.debug(
             f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator:.1f} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")

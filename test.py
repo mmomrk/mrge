@@ -165,12 +165,12 @@ class testMRGE(unittest.TestCase):
     def testGetAccumulatedEntropy(self):
         erg = mrge.Extractor(preNotPostRecalc=True)
         assert erg.getAccumulatedEntropy() == 0, "Bad entropy accumulator init "
-        erg.next(1)
-        erg.next(2)
+        erg.next2(1)
+        erg.next2(2)
         assert erg.getAccumulatedEntropy() == 1, "Bad entropy acc calc for pre-recalc with two different numbers " + \
             str(erg.getAccumulatedEntropy())
         erg.insert(3)
-        erg.next(4)
+        erg.next2(4)
         assert erg.getAccumulatedEntropy(
         ) == 3, "Bad entropy acc calc for pre-recalc with two nexts, one insert and one next, all unique"
         erg.reset()
@@ -178,13 +178,13 @@ class testMRGE(unittest.TestCase):
 
         erg = mrge.Extractor(preNotPostRecalc=False)
         assert erg.getAccumulatedEntropy() == 0, "Bad entropy accumulator init with post reclac"
-        erg.next(1)
+        erg.next2(1)
         assert erg.getAccumulatedEntropy(
         ) == 0, "Bad entropy accumulator with first insertion in post reclac"
-        erg.next(2)
+        erg.next2(2)
         assert erg.getAccumulatedEntropy(
         ) == 0, "Bad entropy accumulator with second insertion that is non-trivial"
-        erg.next(1)
+        erg.next2(1)
         assert erg.getAccumulatedEntropy(
         ) == 1, "Bad entropy accumulator with thrid insertion that sould produce first bit"
 
@@ -195,14 +195,14 @@ class testMRGE(unittest.TestCase):
         assert e.getNumOfNewBits(
             1./4) == 2, "Bad calc of new bits when testing first char with 1/4 chance"
         # Affects entropy accumulator
-        e.next(0)
+        e.next2(0)
         assert e.getNumOfNewBits(mrge.Extractor.getProbs(
             0, e.storage)[0]) == 2, "Bad calc of new bit when nexting 1/4"
         e.insert(1, 1, 1, 1, 1, 1, 1)
         assert e.getNumOfNewBits(e.insNewGetProb(
             1)[0]) == 0, "Bad new bits with very probable insertion"
         e.reset()
-        e.next(1)
+        e.next2(1)
         assert e.getNumOfNewBits(e.insNewGetProb(
             2)[0]) == 1, "Bad new bits with 1/2 insertion"
         assert e.getNumOfNewBits(e.insNewGetProb(
@@ -210,17 +210,17 @@ class testMRGE(unittest.TestCase):
         assert e.getNumOfNewBits(e.insNewGetProb(
             4)[0]) == 2, "Bad new bits with 1/4 insertion"
         e.reset()
-        e.next(1)
-        e.next(2)
-        e.next(3)
-        e.next(4)
-        e.next(0)
+        e.next2(1)
+        e.next2(2)
+        e.next2(3)
+        e.next2(4)
+        e.next2(0)
         assert e.getNumOfNewBits(e.insNewGetProb(
             5)[0]) == 3, "Bad new bits with 1/6 insertion"
         e = mrge.Extractor(preNotPostRecalc=False)
         e.insert(1, 2, 3)
         assert e.getNumOfNewBits(1./3) == 1, "Bad new of post calc 1/3"
-        e.next(3)
+        e.next2(3)
         e.insert(1, 2)
         # 2 is because it stored .5 bit from the first 1/3 event
         assert e.getNumOfNewBits(
@@ -228,8 +228,8 @@ class testMRGE(unittest.TestCase):
         e1 = mrge.Extractor(revBlock=4)
         e.reset()
         for x in range(5):
-            e.next(x)
-            e1.next(x)
+            e.next2(x)
+            e1.next2(x)
         assert e1.entropyAccumulator > e.entropyAccumulator, "Optimal block algo does not work"
 
     def testUpdateInterval(self):
@@ -302,15 +302,15 @@ class testMRGE(unittest.TestCase):
         revlen = 4
         e = mrge.Extractor(revBlock=revlen)
         for i in range(revlen - 1):
-            nexts = e.next(i)
+            nexts = e.next2(i*10)
             assert nexts == (
-                False, []), "Got output before reaching revBlock "+str(nexts)
-        succ, array = e.next(555)
+                False, []), "Got output before reaching revBlock "+str(nexts)+str(i)
+        succ, array = e.next2(555)
         assert succ and len(
             array) == 8, "Got bad output of buffered block of length "+str(revlen)+str(array)
         e = mrge.Extractor(revEntropy=11)
         for i in range(20):
-            succ, bits = e.next(i)
+            succ, bits = e.next2(i)
             if succ:
                 assert len(
                     bits) == 11 and i == 4, "Buffered entropy is calculated incorrectly"
@@ -318,10 +318,10 @@ class testMRGE(unittest.TestCase):
         revlen = 4
         e0 = mrge.Extractor(revBlock=revlen)
         for _ in range(revlen):
-            succ, arr = e0.next(0)
+            succ, arr = e0.next2(0)
             assert not succ, "Trivial insertion in buffered mode resulted in bits output"
         # This test is the motivation towards the revLenGenerousMode flag: this run could have resulted in 3 bits after inserting 556 here
-        succ, arr = e0.next(556)
+        succ, arr = e0.next2(556)
         assert succ and len(
             arr) == 2, "Bad behav of buffered mode after first non-trivial post-buffer insertion "+str(arr)
 
