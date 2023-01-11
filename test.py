@@ -239,16 +239,16 @@ class testMRGE(unittest.TestCase):
         assert e.left == fr(1, 2) and e.length == fr(
             1, 2), "Bad int update for 1/2, 1/2"
         e.reset()
-        e.next(1)
-        e.next(0)
+        e.next2(1)
+        e.next2(0)
         assert e.left == 0 and e.length == fr(
             1, 2), f"Bad interval handling of first 1/2 prob {e.left}, {e.length}"
         e.reset()
         e.insert(1, 2, 3)
-        e.next(4)
+        e.next2(4)
         assert e.left == fr(3, 4) and e.length == fr(
-            1, 4), "Bad interval handling of first 1/4"
-        e.next(1)
+            1, 4), f"Bad interval handling of first 1/4 left {e.left}, length {e.length}"
+        e.next2(1)
         assert e.left == fr(3, 4) and e.length == fr(
             2, 20), "Bad int handling of 2/5 prob insertion after 1/4"
         e.reset()
@@ -259,25 +259,25 @@ class testMRGE(unittest.TestCase):
 
     def testGenerateOutputApproximation(self):
         e = mrge.Extractor()
-        r1 = e.next(1)
+        r1 = e.next2(1)
         assert r1 == (False, []), "Bad return of first insert"
-        r2 = e.next(0)
+        r2 = e.next2(0)
         assert r2 == (True, [0]), "Bad return of second insertion"
         e.reset()
         e.insert(1, 2, 3)
-        r3 = e.next(4)
+        r3 = e.next2(4)
         assert r3 == (True, [1, 1]), "Bad return of first 1/4 insertion"
         e.reset()
         e.insert(1, 2, 3)
-        r4 = e.next(0)
+        r4 = e.next2(-11)
         assert r4 == (
-            True, [0, 0]), "Ba return of first 1/4 insertion with 0 shift"
+            True, [0, 0]), "Ba return of first 1/4 insertion with 0 shift "+str(r4)
         e.reset()
         e.insert(*[1, 2, 3]*100)
-        r5 = e.next(1)
-        r6 = e.next(2)
-        assert r5 == (True, [0]), "Bad first return of 1/3 test"
-        assert r6 == (True, [0, 1]), "Bad second return of 1/3 test"
+        r5 = e.next2(1)
+        r6 = e.next2(1)
+        assert r5 == (True, [0]), "Bad first return of 1/3 test "+str(r5)
+        assert r6 == (True, [0, 0]), "Bad second return of 1/3 test"+str(r6)
         e.reset()
         e.length = fr(1, 128)
         e.left = 0
@@ -285,11 +285,11 @@ class testMRGE(unittest.TestCase):
         #rl = e.generateOutputApproximation(8)
         #assert rl == [0, 0, 0, 0, 0, 0, 0, 0], f"Bad apprximation of 0 for 1/128 {rl}"
         e3 = mrge.Extractor(base=3)
-        e3.next(111)
-        e3.next(222)
+        e3.next2(111)
+        e3.next2(222)
         assert e3.outputBitsCount == 0, "Got one trite before 3 numbers received " + \
             str(e3.outputBitsCount)
-        res3 = e3.next(333)
+        res3 = e3.next2(333)
         assert res3 == (True, [2]), "Bad retrieval of base 3"
 
     def testPickle(self):

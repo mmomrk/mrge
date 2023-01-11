@@ -258,6 +258,7 @@ class Extractor():
             storage[event] += 1
         return storage
 
+    # Generally speaking it might be more proper to make history a boolean flag instead of list
     def generateOutputApproximation2(self, history=None):
         '''
         return full binary sequence based on the state of class
@@ -360,13 +361,17 @@ class Extractor():
         self.left, self.length = Extractor.calcInterval(
             (self.left, self.length), probs)
         approx = self.generateOutputApproximation2()
-        newBits = len(approx) - self.outputBitsCount
-        if self.revBlockAccumulating or self.revEntropyAccumulating:
-            pass
-        if newBits:
-            return (True, approx[-newBits:])
+        newBits = Extractor.getNumOfNewBits2(len(approx), self.outputBitsCount, history=self.backlog, storage=self.storage, revEnt = self.revEntropy, revBlock = self.revBlock, base=self.base)
+        if self.revBlock or self.revEntropy and newBits:
+            self.revBlock = 0
+            self.revEntropy = 0
+            approx = self.generateOutputApproximation2(self.backlog)
+        self.entropyAccumulator += self.getEntropyOfThis(item,prob=probs[0])
+        self.outputBitsCount += newBits
         logging.debug(
-            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
+            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator:.1f} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
+        if newBits:
+            return (True,  approx[-newBits:])
         return (False, [])
 
     def next(self, item):
@@ -407,7 +412,8 @@ class Extractor():
             if line == '' or line == '\n' or line == '\r\n':
                 continue
             item = self.input2object(line)
-            succ, arr = self.next(item)
+            #succ, arr = self.next(item)
+            succ, arr = self.next2(item)
             if succ:
                 if verbosity > 3:
                     self.outp.write('>> ')
@@ -422,13 +428,15 @@ class Extractor():
         '''
         self.softReset()
         self.storage = {}
+        self.outputBitsCount = 0
+        self.revBlockAccumulating = True
+        self.revEntropyAccumulating = True
 
     def softReset(self):
         '''
         This is a reset to allow saving of storage. This will lose some of the accumulated entropy, but will allow the fraction maths to be reset and start accumulating scary numbers again
         '''
         self.entropyAccumulator = 0
-        self.outputBitsCount = 0
         self.left = 0
         self.length = 1
         self.backlog = []
