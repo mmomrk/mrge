@@ -14,7 +14,7 @@ The main features of MRGE are:
 - Requires no prior information about source statistics and distribution
 - Generates output starting at the first non-trivial event (zero latency)
 - Entropy of the output is equal (*not strictly all of the time, but it jumps to the floor of input entropy when ready*) to the entropy of the input
-- Preserves "fractional" bits: will generate output of 15 bits for 10 events with 1.5 bit entropy
+- Preserves "fractional" bits: will generate output of 15 bits for 10 events with 1.5 bit entropy, theoretically. IRL getting 10 inputs of exactly 1.5 bit each is very unlikely
 - Increases (*or decreases*) output bits per event when gathers more information about entropy source
 
 
@@ -91,20 +91,19 @@ $./mrge.py -i test.input
 111111
 
 $echo -e "1\n4\n2\n5\n3" | ./mrge.py
-110111
+$echo -e "1\n3\n2\n5\n4" | ./mrge.py
+110100
 
 $echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5
-00100010101
+0010001010
 
 $echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5 --base 7
 0642
 ```
 
-Note: most likely this output will change in a little while
-
 ## Theoretical background
 
-The tool constantly updates a probability function and probability density of the input source. Based on that information it maps the input event stream onto the 0..1 interval hence converging to some division of the interval with monotonously growing precision.
+The extractor's backbone is a method of information-weighted graphs inexact isomorphisms. More in the article
 
 ## Known bugs
 
@@ -123,7 +122,9 @@ When 1.0 version is released I'll check if it is possible and worth the effort t
 
 ## Further development
 
-- Use it to track unnatural package activity in the local network
+- Make theoretical base on the topic of reversability
+- Investigate behaviour of the extractor for the purpose of manipulation in the long perspective
+- Use it to track unnatural package activity in the local network. Sort of snort
 - Second order extractor to track and fix input distribution drift
 - Server-side anti-bot
 
