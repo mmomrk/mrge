@@ -30,7 +30,6 @@ The price for the abovementioned features is:
 
 - Requires a lot more computational power for its operation compared to conventional randomness extractors
 - Written in Python
-- Contains at least one bug at the moment this document is written
 
 
 ## Help output
@@ -119,12 +118,14 @@ When 1.0 version is released I'll check if it is possible and worth the effort t
 
 - Add handling of non-comparable input
 - Add rounding flag for soft-resetting
+- Add default setting of post not pre handling because security of the first bit. Or maybe not. Should be discussed with the professionals. Not an issue with statistics storage though
 
 ## Further development
 
 - Make theoretical base on the topic of reversability
 - Investigate behaviour of the extractor for the purpose of manipulation in the long perspective
 - Use it to track unnatural package activity in the local network. Sort of snort
+- Make a tool to squeeze the extractor into low-resource MC's by the input profile and provided specs or something
 - Second order extractor to track and fix input distribution drift
 - Server-side anti-bot
 
