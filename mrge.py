@@ -30,6 +30,7 @@ def parseFlags():
         '-s', '--save-stats', help="Save input to this file to reuse this statistics later", type=str, default=None)
     parser.add_argument(
         '-l', '--load-stats', help="Load statistics of input from this file to get a jump-start. Could be same as in the --save-stats flag", type=str, default=None)
+    parser.add_argument('-r', '--round', help="Round. Allow this amount of bits to be lost here and there. Assumed to be 0..1. Lower values would result in more information output but would lead to use of bigger integer numbers in the code. Bigger numbers are a bad thing when overflow is to be considered. Zero and negative turn this flag off and probably lead to bad things (default)", type=float, default=-1)
     return parser.parse_args()
 
 
@@ -101,7 +102,7 @@ class Extractor():
             retval = stdout
         return retval
 
-    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float):
+    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float, round: float = -1):
         '''
         base    -   base of output numbers
         preNotPostRecalc    -   calculate event probability before storing the event to the statistics that probability is calculated with (see lightning probability for clarifications)

@@ -114,21 +114,30 @@ I got fired and have some time for an old project of mine. Perhaps it could be w
 
 When 1.0 version is released I'll check if it is possible and worth the effort to integrate it into The Kernel.
 
-## TODO
+## Codebase TODO
 
 - Add handling of non-comparable input
 - Add rounding flag for soft-resetting
 - Add default setting of post not pre handling because security of the first bit. Or maybe not. Should be discussed with the professionals. Not an issue with statistics storage though
 
-## Further development
+## Scientific TODO
 
 - Make theoretical base on the topic of reversability
 - Investigate behaviour of the extractor for the purpose of manipulation in the long perspective
+- Calculate asymptote of fraction numbers growth as a function of input size
+- Calculate algorithm complexity
+- Second order extractor to track and fix input distribution drift
+
+## Applications TODO
+
 - Use it to track unnatural package activity in the local network. Sort of snort
 - Make a tool to squeeze the extractor into low-resource MC's by the input profile and provided specs or something
-- Second order extractor to track and fix input distribution drift
 - Server-side anti-bot
+
+## TODO that is unlikely to ever be TODONE
+
+- Finish theory and implement in code the randomness extraction by CHOFCH in the Fibonacci-base space
 
 ## Licence
 
-MIT. Can't stop Rock and Roll
+MIT. Can't stop Rock and Roll as soon as I feel comfortable.
