@@ -464,6 +464,24 @@ class testMRGE(unittest.TestCase):
         lele = ri([3], {1: 1, 2: 1, 3: 1})
         assert lele == (fr(2, 3), fr(1, 3)), "Bad interval recalc of third"
 
+    def testSoftReset(self):
+        e = mrge.Extractor()
+        e.next2(1)
+        e.next2(0)
+        e.next2(1)
+        res, outp = e.next2(0)
+        assert res == False, "Bad return of less than one weight bit"
+        e.reset()
+        e.next2(21)
+        e.next2(20)
+        e.next2(21)
+        e.softReset()
+        res, outp = e.next2(20)
+        assert res and outp == [0], "Bad return after soft reset "+str(outp)
+
+    def testRounding(self):
+        e = mrge.Extractor(rounding=.1)
+
 
 if __name__ == "__main__":
     mrge.setLogger(5)

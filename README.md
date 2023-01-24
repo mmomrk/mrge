@@ -84,19 +84,21 @@ options:
 
 ## Example
 
+Note: construction '| sed -e "s/ /\n/g" |' replaces whitespaces between numbers to the newline character as required for the input of the program to work correctly. And to show sequence of numbers clearly in the console
+
 ```
-$echo -e "1\n2\n3\n4\n5" > test.input
-$./mrge.py -i test.input
+$ echo -e "1 2 3 4 5" | sed -e "s/ /\n/g" | > test.input
+$ ./mrge.py -i test.input
 111111
 
-$echo -e "1\n4\n2\n5\n3" | ./mrge.py
-$echo -e "1\n3\n2\n5\n4" | ./mrge.py
+$ echo -e "1 4 2 5 3" | sed -e "s/ /\n/g" | ./mrge.py
+$ echo -e "1 3 2 5 4" | sed -e "s/ /\n/g" | ./mrge.py
 110100
 
-$echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5
+$ echo -e "1 4 2 5 3" | sed -e "s/ /\n/g" | ./mrge.py --rev-block 5
 0010001010
 
-$echo -e "1\n4\n2\n5\n3" | ./mrge.py --rev-block 5 --base 7
+$ echo -e "1 4 2 5 3" | sed -e "s/ /\n/g" | ./mrge.py --rev-block 5 --base 7
 0642
 ```
 

@@ -47,6 +47,9 @@ def setLogger(lvl, **kwargs):
 
 
 def parseargs():
+    '''
+    More like init
+    '''
     global verbosity
     args = parseFlags()
     verbosity = args.verbose
@@ -102,7 +105,7 @@ class Extractor():
             retval = stdout
         return retval
 
-    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float, round: float = -1):
+    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float, rounding: float = -1):
         '''
         base    -   base of output numbers
         preNotPostRecalc    -   calculate event probability before storing the event to the statistics that probability is calculated with (see lightning probability for clarifications)
@@ -115,6 +118,7 @@ class Extractor():
         instream    -   iterable containing items objects comparable
         str2cmp -   method to convert input string to object. Objects have to be pairwise comparable and a<b, b<c => a<c. TODO: remove this restriction with orderedDict
         revBlockGenerousMode    -   TODO? keep on recalculating history until you get output (works if we get more trivial insertions than revBlock setting, hence 0 output at revBlock insertion)
+        round   -   allow this amount of bits to be lost. Expected to be 0..1
         '''
         # Algo settings:
         assert base >= 2, "Output base should be >=2"
@@ -123,6 +127,7 @@ class Extractor():
         self.prePost = preNotPostRecalc
         # Greedy parameters to configure speed vs latency:
         self.revBlock = revBlock
+        # TODO: remove *Accumulating flags when refactor and place next2() instead of next()
         self.revBlockAccumulating = revBlock > 0
         self.revEntropy = revEntropy
         self.revEntropyAccumulating = revEntropy > 0
@@ -144,6 +149,7 @@ class Extractor():
         self.outputBitsCount = 0
         self.left = 0
         self.length = 1
+        self.round = rounding
 
     @staticmethod
     def getProbs(item, storage: dict):
@@ -373,9 +379,13 @@ class Extractor():
         self.outputBitsCount += newBits
         logging.debug(
             f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator:.1f} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
-        if newBits:
-            return (True,  approx[-newBits:])
-        return (False, [])
+        if not newBits:
+            return (False, [])
+        if self.round > 0 and self.ent - self.round:
+            logging.critical("THIS IS NOT FINISHED")
+            logging.debug(f"Doing soft reset with round={self.round}")
+            self.softReset()
+        return (True,  approx[-newBits:])
 
     def next(self, item):
         probs = self.insNewGetProb(item)
@@ -429,16 +439,19 @@ class Extractor():
         '''
         This is complete reset of the extractor state
         '''
-        self.softReset()
+        self.softReset(hardReset=True)
         self.storage = {}
-        self.outputBitsCount = 0
         self.revBlockAccumulating = True
         self.revEntropyAccumulating = True
 
-    def softReset(self):
+    def softReset(self, hardReset=False):
         '''
         This is a reset to allow saving of storage. This will lose some of the accumulated entropy, but will allow the fraction maths to be reset and start accumulating scary numbers again
         '''
+        if not hardReset:
+            logging.debug(
+                f"Soft Reset from state: output {self.outputBitsCount}, accumulated entropy {self.entropyAccumulator:.1f}, left {self.left}, length {self.length}")
+        self.outputBitsCount = 0
         self.entropyAccumulator = 0
         self.left = 0
         self.length = 1

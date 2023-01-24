@@ -48,9 +48,11 @@ if __name__ == '__main__':
                         menu_items={"Report a bug": "mailto:mark.mipt@yahoo.com", "About": get_readme()})
     cont1 = stl.empty()
     cont2 = stl.empty()
+    cont3 = stl.empty()
     st = stl.empty()
     cont1.write("A demo of a My Greedy Randomness Extractor\n\nREADME could be found in the menu. Upload a file to extract randomness from. \n\nEach line contains a single input event, separated by newline character. Input events will be processed by python float() function")
-    file = loadFile(cont2)
+    cont2.markdown("README is hidden in the menu and on [this page](https://webmrk.org/mrge_readme/)")
+    file = loadFile(cont3)
     if not file:
         pass
         print("LOOP?")
@@ -58,6 +60,7 @@ if __name__ == '__main__':
     else:
         cont1.empty()
         cont2.empty()
+        cont3.empty()
         lines = file.getvalue().decode("UTF-8")
         for line in lines:
             print(line)
