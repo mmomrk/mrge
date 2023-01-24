@@ -378,10 +378,10 @@ class Extractor():
         self.entropyAccumulator += self.getEntropyOfThis(item, prob=probs[0])
         self.outputBitsCount += newBits
         logging.debug(
-            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator:.1f} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
+            f"Nexted {item} to form {self.storage} now entorpy is {self.entropyAccumulator:.2f} with probs {probs} and output bits {self.outputBitsCount} and new bits is {newBits}")
         if not newBits:
             return (False, [])
-        if self.round > 0 and self.ent - self.round:
+        if self.round > 0 and self.entropyAccumulator - self.round < self.outputBitsCount:
             logging.critical("THIS IS NOT FINISHED")
             logging.debug(f"Doing soft reset with round={self.round}")
             self.softReset()

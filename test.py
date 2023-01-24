@@ -480,7 +480,25 @@ class testMRGE(unittest.TestCase):
         assert res and outp == [0], "Bad return after soft reset "+str(outp)
 
     def testRounding(self):
-        e = mrge.Extractor(rounding=.1)
+        e = mrge.Extractor(rounding=.2)
+        e.insert(*[1, 2, 3]*100)
+        succ, bits = e.next2(3)
+        assert succ and len(
+            bits) == 1, "Bad 1 of 3 insertion in the rounding test"
+        succ, bits = e.next2(3)
+        # Get data AND reset internal state EXCEPT for statistics in storage
+        assert succ and len(bits) == 2 and \
+            e.outputBitsCount == 0 and e.entropyAccumulator == 0 and \
+            e.backlog == [] and e.left == 0 and e.length == 1 and \
+            len(e.storage.keys()) > 0, "Bad softreset of 1.5 entropy example"
+        e.reset()
+        e.round = 0.005
+        e.insert(*([0, 1]*16)[:-1])
+        succ, bits = e.next2(3)
+        assert succ and len(bits) == 5 and \
+            e.outputBitsCount == 0 and e.entropyAccumulator == 0 and \
+            e.backlog == [] and e.left == 0 and e.length == 1 and \
+            len(e.storage.keys()) > 0, "Bad softreset of 2.0 entopy example"
 
 
 if __name__ == "__main__":
