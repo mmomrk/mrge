@@ -87,7 +87,7 @@ options:
 Note: construction '| sed -e "s/ /\n/g" |' replaces whitespaces between numbers to the newline character as required for the input of the program to work correctly. And to show sequence of numbers clearly in the console
 
 ```
-$ echo -e "1 2 3 4 5" | sed -e "s/ /\n/g" | > test.input
+$ echo -e "1 2 3 4 5" | sed -e "s/ /\n/g" > test.input
 $ ./mrge.py -i test.input
 111111
 
