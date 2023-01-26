@@ -306,8 +306,9 @@ class testMRGE(unittest.TestCase):
             assert nexts == (
                 False, []), "Got output before reaching revBlock "+str(nexts)+str(i)
         succ, array = e.next2(555)
-        assert succ and len(
-            array) == 8, "Got bad output of buffered block of length "+str(revlen)+str(array)
+        assert succ and len(array) == 8,\
+            "Got bad output of buffered block of length " + \
+            str(revlen)+str(array)
         e = mrge.Extractor(revEntropy=11)
         for i in range(20):
             succ, bits = e.next2(i)
@@ -499,6 +500,59 @@ class testMRGE(unittest.TestCase):
             e.outputBitsCount == 0 and e.entropyAccumulator == 0 and \
             e.backlog == [] and e.left == 0 and e.length == 1 and \
             len(e.storage.keys()) > 0, "Bad softreset of 2.0 entopy example"
+
+    def testDictionaryEnumerator(self):
+        cooldict = mrge.DictionaryEnumerator()
+        assert len(cooldict.keys()) == 0 and len(
+            cooldict.items()) == 0, "Bad enum dict init on lens"
+        cooldict['a'] = 0
+        cooldict[' '] = 0
+        prevID = -1
+        for iditem, count in cooldict.items():
+            assert type(
+                iditem) == int and prevID != iditem, f"enumerator dict failed to return proper comparable keys {prevID}<{iditem}"
+            prevID = iditem
+        assert cooldict.__contains__('a'), "No contains operation in enum dict"
+        assert not cooldict.__contains__('z'), "bug in conatins of enum dict"
+        assert len(cooldict) == 2, "Bad len for enum dict"
+        cooldict['e'] = 3
+        assert len(cooldict) == 3, "Bad len incr for enum dict"
+        cooldict['a'] += 1
+        assert cooldict['a'] == 1, "Bad operation on enum dict value"
+        cd = cooldict.copy()
+        cooldict.clear()
+        assert len(cooldict) == 0, "Bad clear of enum dict"
+        assert len(cd) == 3, "Bad copy of enum dict"
+        assert 'a' in cd.keys(), "Bad keys method of enum dict"
+        # This is where things get confusing. I need integers as keys returned by items operation:
+        for pair in ((0, 1), (1, 0), (2, 3)):
+            assert pair in cd.items(), "Bad itemsrepresentation of enum dict "+str(cd.items())
+        assert 1 in cd.values(), "Bad values in enum dict"
+        cd.setdefault('d', 12)
+        cd.setdefault('e', 12)
+        assert cd['e'] == 3 and cd['d'] == 12, "Bad setdefault of enum dict"
+        # I am bored and will not code .update unless i really need to
+        # And a bunch of other methods too
+        assert cd.get('e', 55) == 3 and cd.get('z', 55) == 55, \
+            "Bad get of enum dicti"
+
+    # TODO: add reset test
+    def testConversionToStringAcceptingInput(self):
+        e = mrge.Extractor()
+        e.convert2stringing()
+        succ, bits = e.next2('a')
+        assert not succ and len(
+            bits) == 0, "Bad first next of stringy "+str(bits)+str(succ)
+        e.next2('b')
+        e.next2('c')
+        s, bits = e.next2('a')
+        assert s and len(bits) == 1 and bits[0] == 0,\
+            "Bad third next of stringy "+str(bits)
+        #s,b = e.next2('a')
+        #assert s and b and len(b) == 1 and b[0] == 0, "Bad first meaningful next of stringy "+str(b)
+        s, b = e.next2('a')
+        assert s and b and len(b) == 1 and b[0] == 0,\
+            "Bad second meaningful next of stringy "+str(b)
 
 
 if __name__ == "__main__":
