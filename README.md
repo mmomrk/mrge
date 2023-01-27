@@ -118,15 +118,16 @@ When 1.0 version is released I'll check if it is possible and worth the effort t
 
 ## Codebase TODO
 
-- Add handling of non-comparable input
-- Add rounding flag for soft-resetting
-- Add default setting of post not pre handling because security of the first bit. Or maybe not. Should be discussed with the professionals. Not an issue with statistics storage though
+- (DONE) Add handling of non-comparable input
+- (DONE) Add rounding flag for soft-resetting
+- Add default setting of post not pre handling because security of the first bit. Or maybe not. Should be discussed with the professionals. Not an issue with statistics storage pickling though
+- Add rounding by percentage of performance or by integer overflow
 
 ## Scientific TODO
 
 - Make theoretical base on the topic of reversability
 - Investigate behaviour of the extractor for the purpose of manipulation in the long perspective
-- Calculate asymptote of fraction numbers growth as a function of input size
+- Calculate asymptote of fraction numbers bitness growth as a function of input size
 - Calculate algorithm complexity
 - Second order extractor to track and fix input distribution drift
 

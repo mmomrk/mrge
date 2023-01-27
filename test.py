@@ -507,6 +507,9 @@ class testMRGE(unittest.TestCase):
             cooldict.items()) == 0, "Bad enum dict init on lens"
         cooldict['a'] = 0
         cooldict[' '] = 0
+        vals = list(cooldict.values())
+        assert vals == [0, 0], "bad values for enum dict "+str(vals)
+        assert cooldict.keys() == {'a', ' '}, "Bad keys of enum dict"
         prevID = -1
         for iditem, count in cooldict.items():
             assert type(
@@ -553,6 +556,29 @@ class testMRGE(unittest.TestCase):
         s, b = e.next2('a')
         assert s and b and len(b) == 1 and b[0] == 0,\
             "Bad second meaningful next of stringy "+str(b)
+
+        er = mrge.Extractor(preNotPostRecalc=False, str2cmp=None, revBlock=4)
+
+        class Dummy(object):
+            ...
+        d = Dummy()
+        assert er.input2object(d) == d and er.input2object(44) == 44,\
+            "Bad identity method for er.ent handling in input2object"
+        assert er.prePost == False, "Something changed flag prenotpostrecalc after init"
+        assert type(e.storage) == mrge.DictionaryEnumerator
+        for x in range(3):
+            s, bits = er.next2(str(x))
+            assert er.backlog != [], "Items are not stored while gathering er.tropy"
+            assert not s and bits == [], "Uncarry of bits for revBlock"
+        succ, bits = er.next2(str(4))
+        assert succ and bits == [0, 0, 0, 1, 1, 0, 1, 1],\
+            "Bad revblock for dict enum revBlock "+str(bits)
+        # 17 and 8 are magic constants from empirical observations. Delete this test if it seems like it is wrong:
+        for x in range(17):
+            s, b = er.next2(str(x % 4))
+            if x > 8:
+                assert s and len(
+                    b) > 0 and er.outputBitsCount > 0, "A reset detected after first stage of revblock is over "+str(x)
 
 
 if __name__ == "__main__":
