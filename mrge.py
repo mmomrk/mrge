@@ -91,7 +91,7 @@ class DictionaryEnumerator(dict):
         self.count.__delitem__(self.lookup(ark[0]))
         return self.lookup.__delitem__(*ark, **kw)
 
-    def __repr__(self, /):
+    def __repr__(self):
         items = list((x, self.__getitem__(x)) for x in self.lookup.keys())
         return f"{{items}}"
 
@@ -99,27 +99,27 @@ class DictionaryEnumerator(dict):
     def __getitem__(self, item):
         return self.count.__getitem__(self.lookup.__getitem__(item))
 
-    def __eq__(self, value, /):
+    def __eq__(self, value):
         if type(self) != type(value):
             return False
         return self.lookup == value.lookup and self.count == value.count
 
-    def __iter__(self, /):
+    def __iter__(self):
         # Not tested. Not trusted
         return self.lookup.__iter__()
 
-    def __len__(self, /):
+    def __len__(self):
         # All those ,/ make me look like a pro
         return len(self.lookup)
 
     # nope
     # def __or__
 
-    def __reversed__(self, /):
+    def __reversed__(self):
         # Not tested. Not trusted
         return self.lookup.__reversed__()
 
-    def __setitem__(self, item, value, /):
+    def __setitem__(self, item, value):
      # This is the main method, basically
         itemid = self.lookup.setdefault(item, self.id)
         if itemid == self.id:
@@ -142,7 +142,7 @@ class DictionaryEnumerator(dict):
         cp.count = self.count.copy()
         return cp
 
-    def get(self, key, default=None, /):
+    def get(self, key, default=None):
         return self.count.get(self.lookup.get(key), default)
 
     def items(self):
@@ -160,7 +160,7 @@ class DictionaryEnumerator(dict):
     # def update
     # def fromkeys
 
-    def setdefault(self, key, default=None, /):
+    def setdefault(self, key, default=None):
         itemid = self.lookup.setdefault(key, self.id)
         if self.id == itemid:
             self.id += 1
