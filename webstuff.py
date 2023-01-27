@@ -50,7 +50,7 @@ if __name__ == '__main__':
     cont2 = stl.empty()
     cont3 = stl.empty()
     st = stl.empty()
-    cont1.write("A demo of a My Greedy Randomness Extractor\n\nREADME could be found in the menu. Upload a file to extract randomness from. \n\nEach line contains a single input event, separated by newline character. Input events will be processed by python float() function")
+    cont1.write("A demo of a My Greedy Randomness Extractor\n\n Upload a file to extract randomness from. \n\nEach line should contain a single input event, separated by newline character. Input events will be processed by python float() function")
     cont2.markdown("README is hidden in the menu and on [this page](https://webmrk.org/mrge_readme/)")
     file = loadFile(cont3)
     if not file:
