@@ -31,6 +31,8 @@ def parseFlags():
     parser.add_argument(
         '-l', '--load-stats', help="Load statistics of input from this file to get a jump-start. Could be same as in the --save-stats flag", type=str, default=None)
     parser.add_argument('-r', '--round', help="Round. Allow this amount of bits to be lost here and there. Assumed to be 0..1. Lower values would result in more information output but would lead to use of bigger integer numbers in the code. Bigger numbers are a bad thing when overflow is to be considered. Zero and negative turn this flag off and probably lead to bad things (default)", type=float, default=-1)
+    parser.add_argument('-c', '--convert', help="Use other method to process string input instead of float. 'none' is synonim to 'str'",
+                        choices=['int', 'str', 'none', 'float'], default='float')
     return parser.parse_args()
 
 
@@ -46,16 +48,18 @@ def setLogger(lvl, **kwargs):
     logging.debug("Setting logger debug {lvl}, {ll}, {lls}, {kwargs}")
 
 
-def parseargs():
+def init():
     '''
-    More like init
+    used to be called parseArgs
     '''
     global verbosity
     args = parseFlags()
     verbosity = args.verbose
     setLogger(verbosity)
+    str2cmp = {'int': int, 'str': str,
+               'none': str, 'float': float}[args.convert]
     eFlags = {'base': args.base, 'preNotPostRecalc': not args.post_recalc, 'revBlock': args.rev_block, 'revEntropy': args.rev_entropy,
-              'saveStats': args.save_stats, 'loadStats': args.load_stats, 'inp': args.input, 'outp': args.output}
+              'saveStats': args.save_stats, 'loadStats': args.load_stats, 'inp': args.input, 'outp': args.output, 'str2cmp': str2cmp}
     logging.debug(f"Argument space is {args}\n{eFlags}")
     return eFlags
 
@@ -281,16 +285,18 @@ class Extractor():
             return fr(storage[item], totalEvents), lessThanFrac
         return (0, lessThanFrac)
 
-    def insNewGetProb(self, item):
+    def insNewGetProb(self, item, fixed=None):
         """ Insert item and return (its probability, probability to get item smaller than given)
         Function respects the constructor flag of pre-insertion or post-insertion probability calculation. See lightning example
+        if fixed argument is provided then no storage update is performed
         """
-        if len(self.storage.keys()) == 0:
+        probsStorage = self.storage if not fixed else fixed
+        if len(self.storage.keys()) == 0 and not fixed:
             self.insert(item)
             return (0, 0)
         if self.prePost:
             self.insert(item)
-        probs = Extractor.getProbs(item, self.storage)
+        probs = Extractor.getProbs(item, probsStorage)
         if not self.prePost:
             self.insert(item)
         return probs
@@ -475,9 +481,10 @@ class Extractor():
         for item in history:
             self.updateInterval(*Extractor.getProbs(item, self.storage))
 
-    def next2(self, item):
+    def next2(self, item, fixed=None):
         #logging.debug(f"Enter next2 with new item {item}")
-        probs = self.insNewGetProb(item)
+        probs = self.insNewGetProb(item, fixed=fixed)
+        #probs = self.insNewGetProb(item)
         self.left, self.length = Extractor.calcInterval(
             (self.left, self.length), probs)
         approx = self.generateOutputApproximation2()
@@ -505,7 +512,6 @@ class Extractor():
             return (False, [])
         # soft reset part <- for refactor
         if self.round > 0 and self.entropyAccumulator - self.round < self.outputBitsCount:
-            logging.critical("THIS IS NOT FINISHED")
             logging.debug(f"Doing soft reset with round={self.round}")
             self.softReset()
         return (True,  approx[-newBits:])
@@ -647,6 +653,6 @@ class Extractor():
 
 
 if __name__ == "__main__":
-    params = parseargs()
+    params = init()
     e = Extractor(**params)
     e.loop()
