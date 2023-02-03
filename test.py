@@ -589,6 +589,21 @@ class testMRGE(unittest.TestCase):
                 assert s and len(
                     b) > 0 and er.outputBitsCount > 0, "A reset detected after first stage of revblock is over "+str(x)
 
+    def testFixedStorage(self):
+        e = mrge.Extractor(fixed={})
+        e1 = mrge.Extractor()
+        e2 = mrge.Extractor(fixed={1: 1, 3: 1})
+        for t in [71, 0]*10:
+            res, val = e.next2(t)
+            res1, val1 = e1.next2(t, fixed={})
+            res2, val2 = e2.next2(t)
+            rr = res1 or res2 or res
+            assert not rr, "Fixed flag does ont work {{}}"
+        e = mrge.Extractor(fixed={0: 11, 2: 11})
+        for t in [0]*10:
+            succ, bits = e.next2(t)
+            assert succ and bits == [0], "Fixed with given dicti does not work"
+
 
 if __name__ == "__main__":
     mrge.setLogger(5)

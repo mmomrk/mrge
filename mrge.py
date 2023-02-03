@@ -31,8 +31,10 @@ def parseFlags():
     parser.add_argument(
         '-l', '--load-stats', help="Load statistics of input from this file to get a jump-start. Could be same as in the --save-stats flag", type=str, default=None)
     parser.add_argument('-r', '--round', help="Round. Allow this amount of bits to be lost here and there. Assumed to be 0..1. Lower values would result in more information output but would lead to use of bigger integer numbers in the code. Bigger numbers are a bad thing when overflow is to be considered. Zero and negative turn this flag off and probably lead to bad things (default)", type=float, default=-1)
-    parser.add_argument('-c', '--convert', help="Use other method to process string input instead of float. 'none' is synonim to 'str'",
-                        choices=['int', 'str', 'none', 'float'], default='float')
+    parser.add_argument('-c', '--convert', help="Use other method to process string input instead of float. 'none' is synonim to 'str' when working in the command line",
+                        type=str, choices=['int', 'str', 'none', 'float'], default='float')
+    parser.add_argument('-f', "--fixed", help="This argument will block insertions to Extractor.storage and predefine probabilities if value is provided. Example syntax: '7/22' - this will set p(0)=fr(7,22), p(1)=1-p(0). Only 0-1 input is supported with this flag. Setting '-c int' is recommended. Not properly tested",
+                        nargs='?', default=None, const='', type=str)
     return parser.parse_args()
 
 
@@ -45,7 +47,25 @@ def setLogger(lvl, **kwargs):
         ll = lls[-1]
     logging.basicConfig(
         level=ll, format='\t%(asctime)s %(levelname)s \n%(message)s', datefmt='%s', **kwargs)
-    logging.debug("Setting logger debug {lvl}, {ll}, {lls}, {kwargs}")
+    logging.debug(f"Setting logger debug {lvl}, {ll}, {lls}, {kwargs}")
+
+
+def parseFixedArg(fixed: str):
+    if fixed is None:
+        return None
+    if fixed == '':
+        return {}
+    split = fixed.strip().split('/')
+    assert len(split) == 2, f"Bad argument passed to fixed: {split}"
+    try:
+        num, denom = int(split[0]), int(split[1])
+    except ValueError:
+        logging.critical(f"Failed to cast int in the fixed fraction {split}")
+        exit(1)
+    p0 = fr(num, denom)
+    p1 = 1-p0
+    logging.debug(f"Resolved fixed argument to {p0}..{p1}")
+    return {0: p0, 1: p1}
 
 
 def init():
@@ -56,10 +76,15 @@ def init():
     args = parseFlags()
     verbosity = args.verbose
     setLogger(verbosity)
+    # Ugly. Can you do better?:
     str2cmp = {'int': int, 'str': str,
                'none': str, 'float': float}[args.convert]
+    fixed = parseFixedArg(args.fixed)
+    if fixed == {} and args.load_stats is None:
+        logging.error(
+            f"Flags mismatch detected: --fixed is set but --load-stats is not. The code will run but no output is expected. Duh")
     eFlags = {'base': args.base, 'preNotPostRecalc': not args.post_recalc, 'revBlock': args.rev_block, 'revEntropy': args.rev_entropy,
-              'saveStats': args.save_stats, 'loadStats': args.load_stats, 'inp': args.input, 'outp': args.output, 'str2cmp': str2cmp}
+              'saveStats': args.save_stats, 'loadStats': args.load_stats, 'inp': args.input, 'outp': args.output, 'rounding': args.round, 'str2cmp': str2cmp, 'fixed': fixed}
     logging.debug(f"Argument space is {args}\n{eFlags}")
     return eFlags
 
@@ -206,7 +231,7 @@ class Extractor():
             retval = stdout
         return retval
 
-    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float, rounding: float = -1):
+    def __init__(self, base: int = 2, preNotPostRecalc: bool = True,   revBlock: int = 0, revEntropy: int = 0, saveStats: str = None,  loadStats: str = None,   inp: str = None, outp: str = None,  instream: Iterable = [], str2cmp: callable = float, rounding: float = -1, fixed: dict = None):
         '''
         base    -   base of output numbers
         preNotPostRecalc    -   calculate event probability before storing the event to the statistics that probability is calculated with (see lightning probability for clarifications). Note: setting this to False is sort of bit better for security at the cost of latency delay by 1 event per each new event
@@ -220,6 +245,7 @@ class Extractor():
         str2cmp -   method to convert input string to object. If uncomparable items are given as input, then 'None' or 'str' should be written. WARNING: most likely you want to use preNotPostRecalc flag set to False when this happens
         revBlockGenerousMode    -   TODO? keep on recalculating history until you get output (works if we get more trivial insertions than revBlock setting, hence 0 output at revBlock insertion)
         round   -   allow this amount of bits to be lost. Expected to be 0..1
+        fixed   -   use this dictionary as a fixed storage
         '''
         # Algo settings:
         assert base >= 2, "Output base should be >=2"
@@ -255,6 +281,12 @@ class Extractor():
         self.left = 0
         self.length = 1
         self.round = rounding
+        self.storageFixed = False
+        if fixed is not None:
+            self.storageFixed = True
+            # if fixed flag is set but no fraction, then loadStatistics is expected
+            if fixed:
+                self.storage = fixed
 
     @staticmethod
     def getProbs(item, storage: dict):
@@ -285,20 +317,29 @@ class Extractor():
             return fr(storage[item], totalEvents), lessThanFrac
         return (0, lessThanFrac)
 
-    def insNewGetProb(self, item, fixed=None):
+    def insNewGetProb(self, item, fixed: dict = None):
         """ Insert item and return (its probability, probability to get item smaller than given)
         Function respects the constructor flag of pre-insertion or post-insertion probability calculation. See lightning example
-        if fixed argument is provided then no storage update is performed
+        if fixed argument is provided then no storage update is performed. Else fixed value is used as storage 
         """
+        # if fixed storage: inserter set to trivial:
+        inserter = self.insert
+        if fixed is not None or self.storageFixed:
+            inserter = lambda *ars: None
+        # If fixed is dictionary then use it for getProbs:
         probsStorage = self.storage if not fixed else fixed
+        if fixed is not None:
+            probsStorage = fixed
+        # first entry handling:
         if len(self.storage.keys()) == 0 and not fixed:
-            self.insert(item)
+            inserter(item)
             return (0, 0)
+        # prepost logic:
         if self.prePost:
-            self.insert(item)
+            inserter(item)
         probs = Extractor.getProbs(item, probsStorage)
         if not self.prePost:
-            self.insert(item)
+            inserter(item)
         return probs
 
     @staticmethod
@@ -482,6 +523,9 @@ class Extractor():
             self.updateInterval(*Extractor.getProbs(item, self.storage))
 
     def next2(self, item, fixed=None):
+        '''
+        It is possible to put fixed dictionary here and use it without setting it in the constructor. Not sure if anyone would use it
+        '''
         #logging.debug(f"Enter next2 with new item {item}")
         probs = self.insNewGetProb(item, fixed=fixed)
         #probs = self.insNewGetProb(item)
@@ -511,7 +555,9 @@ class Extractor():
         if not newBits:
             return (False, [])
         # soft reset part <- for refactor
-        if self.round > 0 and self.entropyAccumulator - self.round < self.outputBitsCount:
+        logging.debug(
+            f" {self.round}>0 and {self.entropyAccumulator} - {self.round} < {self.outputBitsCount}")
+        if self.round > 0 and (self.entropyAccumulator - self.round < self.outputBitsCount):
             logging.debug(f"Doing soft reset with round={self.round}")
             self.softReset()
         return (True,  approx[-newBits:])
@@ -606,6 +652,8 @@ class Extractor():
     def insert(self, *items):
         ''' Method is used for testing. To insert items without recalculating stuff in the process
         '''
+        if self.storageFixed:
+            return
         logging.info("Inserting " + str(items))
         for item in items:
             if item is None:
