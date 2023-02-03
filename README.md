@@ -5,7 +5,7 @@
 This is a tool to process random events into random numbers, i.e the
 randomness extractor.
 
-The input of the tool could be any (generally speaking) stream of events that could be distinguished from one another. *At the time this text is written only a subset of events that have defined compare operation is accepted as input*.
+The input of the tool could be any (generally speaking) stream of events that could be distinguished from one another. 
 
 The output of the tool is a stream of truly randomly distributed numbers that have the same entropy as the input source.
 
@@ -34,6 +34,7 @@ The price for the abovementioned features is:
 
 ## Help output
 
+```
 usage: mrge.py [-h] [--verbose] [-i INPUT] [-o OUTPUT] [-b BASE] [-e REV_ENTROPY] [-n REV_BLOCK] [-p] [-s SAVE_STATS] [-l LOAD_STATS] [-r ROUND]
                [-c {int,str,none,float}] [-f [FIXED]]
 
@@ -71,6 +72,7 @@ options:
                         This argument will block insertions to Extractor.storage and predefine probabilities if value is provided. Example syntax:
                         '7/22' - this will set p(0)=fr(7,22), p(1)=1-p(0). Only 0-1 input is supported with this flag. Setting '-c int' is
                         recommended. Not properly tested
+```
 
 ## Example
 
