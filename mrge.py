@@ -597,7 +597,8 @@ class Extractor():
 
     # TODO: add proper init for ENUMERATOR
     def convert2stringing(self, storage={}):
-        self.reset()
+        # Weird. This thing should not have been here:
+        #self.reset()
         # store strings to self.storage
         self.input2object = lambda x: x
         # allow storage to accept strings
