@@ -615,6 +615,7 @@ class Extractor():
                 item = self.input2object(line)
             except ValueError:
                 self.convert2stringing()
+                item = self.input2object(line)
             # succ, arr = self.next(item)
             succ, arr = self.next2(item)
             if succ:
